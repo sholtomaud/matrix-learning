@@ -1,0 +1,249 @@
+        async function runFullLoop() {
+            if (!currentData) { setErr('Load JSON first.'); return; }
+            loopStop = false;
+            loopRunning = true;
+            logLines = [];
+            paretoFront = [];
+            document.getElementById('btn-optimise').disabled = true;
+            document.getElementById('btn-stop').disabled = false;
+            openDrawer();
+            switchDrawer('log', document.querySelector('.drawer-tab:last-of-type'));
+
+            log('▶ Loop started');
+            log(`Genre: ${currentData.genre || 'expository'} | n=${currentData.propositions.length} | relations=${currentData.relations.length}`);
+
+            // ── Phase 1: NSGA-II reordering (animated) ──
+            log('Phase 1: Bandwidth optimisation (50 generations)');
+            let working = deepClone(currentData);
+            const relMap = buildRelMap(working);
+
+            for (let gen = 0; gen < 50; gen++) {
+                if (loopStop) { log('■ Stopped by user'); break; }
+                working = optimiserStep(working);
+                const obj = objectives(working.propositions, relMap, working.clusters);
+
+                // Update Pareto front
+                const dominated = paretoFront.some(p => dominates(p, obj));
+                if (!dominated) {
+                    paretoFront = paretoFront.filter(p => !dominates(obj, p));
+                    paretoFront.push({ ...obj, gen, snapshot: deepClone(working.propositions) });
+                }
+
+                if (gen % 5 === 0 || gen === 49) {
+                    document.getElementById('gen-badge').style.display = '';
+                    document.getElementById('gen-badge').textContent = `gen ${gen}`;
+                    proposedData = deepClone(working);
+                    renderProposedMatrix(proposedData);
+                    renderDeltaMatrix(currentData, proposedData);
+                    renderParetoChart();
+                    updateScoreBadges();
+                    log(`  gen ${gen}: bw=${obj.bw} cd=${(obj.cd * 100).toFixed(0)}% br=${obj.br}`);
+                    await sleep(30);
+                }
+            }
+
+            if (!loopStop) {
+                const apiKey = document.getElementById('api-key').value.trim();
+                const sourceText = document.getElementById('source-text').value.trim();
+
+                if (apiKey) {
+                    // ── Phase 2: LLM gap-filling ──
+                    log('Phase 2: LLM gap-filling (Inference Mode)');
+                    const sc = score(proposedData);
+                    if (sc.breaks.length > 0) {
+                        try {
+                            const suggestions = await llmBridgeGaps(proposedData, sc.breaks);
+                            for (const sug of suggestions) {
+                                const newId = Math.max(...proposedData.propositions.map(p => p.id)) + 1;
+                                const newProp = {
+                                    id: newId,
+                                    text: sug.text,
+                                    llmGenerated: true,
+                                    isSynthetic: !sug.foundInText,
+                                    justification: sug.justification
+                                };
+                                proposedData.propositions.splice(sug.insertAfterIdx + 1, 0, newProp);
+
+                                // Link the new node
+                                const prev = proposedData.propositions[sug.insertAfterIdx];
+                                const next = proposedData.propositions[sug.insertAfterIdx + 2];
+                                if (prev) proposedData.relations.push({ from: prev.id, to: newId, type: 'dep', justification: "Bridge: " + sug.justification, llmGenerated: true });
+                                if (next) proposedData.relations.push({ from: newId, to: next.id, type: 'dep', justification: "Bridge completion", llmGenerated: true });
+
+                                log(`  ${sug.foundInText ? '✓ Extracted' : '✦ Synthesized'} bridge: "${sug.text.slice(0, 50)}..."`);
+                            }
+                            renderProposedMatrix(proposedData);
+                            renderDeltaMatrix(currentData, proposedData);
+                        } catch (e) {
+                            log(`  Phase 2 Error: ${e.message}`);
+                        }
+                    }
+
+                    // ── Phase 3: Prose regeneration ──
+                    if (sourceText) {
+                        log('Phase 3: Prose regeneration');
+                        try {
+                            await llmRegenerateProse(proposedData, sourceText);
+                            log('  ✓ Prose regenerated — see Proposed Text tab');
+                        } catch (e) {
+                            log(`  Phase 3 Error: ${e.message}`);
+                        }
+                    } else {
+                        log('Phase 3: Skipped (No source text in sidebar)');
+                    }
+                } else {
+                    log('Phase 2/3: Skipped (No API Key)');
+                }
+            }
+
+            log('✓ Loop complete');
+            loopRunning = false;
+            document.getElementById('btn-optimise').disabled = false;
+            document.getElementById('btn-stop').disabled = true;
+            renderScoresPanel(currentData, proposedData);
+
+
+        }
+
+        function stopLoop() { loopStop = true; }
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        // ══════════════════════════════════════════════════════════════
+        // LLM ROLE 2 — gap-filling
+        // ══════════════════════════════════════════════════════════════
+        async function llmBridgeGaps(data, breaks) {
+            const sourceText = document.getElementById('source-text').value.trim() || '[no source text provided]';
+
+            const system = `You are a Logic Engineer. Analyze conceptual breaks. If a bridge is missing from the text, synthesize the required logical premise (Enthymeme).`;
+
+            const user = `SOURCE: ${sourceText.slice(0, 4000)}
+    SEQUENCE: ${data.propositions.map(p => `${p.id}. ${p.text}`).join('\n')}
+    FIX BREAKS: ${breaks.map(b => `${b.fromId} -> ${b.toId}`).join(', ')}`;
+
+            // The schema must be a valid JSON Schema object
+            const schema = {
+                type: "object",
+                properties: {
+                    bridges: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                breakFrom: { type: "integer" },
+                                breakTo: { type: "integer" },
+                                text: { type: "string", description: "The bridging proposition." },
+                                foundInText: { type: "boolean", description: "True if extracted, false if synthesized." },
+                                justification: { type: "string", description: "Logic or source quote." },
+                                insertAfterIdx: { type: "integer" },
+                                position: { type: "number" }
+                            },
+                            required: ["breakFrom", "breakTo", "text", "foundInText", "justification", "insertAfterIdx", "position"]
+                        }
+                    }
+                },
+                required: ["bridges"]
+            };
+
+            const raw = await llm.complete(system, user, null, schema);
+            const result = JSON.parse(raw);
+            return result.bridges; // Extract the array from the wrapper object
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // LLM ROLE 3 — prose regeneration
+        // ══════════════════════════════════════════════════════════════
+        async function llmRegenerateProse(data, sourceText) {
+            const clusters = data.clusters || [{ label: "Full Text", ids: data.propositions.map(p => p.id) }];
+            const el = document.getElementById('dc-proposed-text');
+            el.innerHTML = '';
+
+            for (const cluster of clusters) {
+                const clusterProps = data.propositions.filter(p => cluster.ids.includes(p.id));
+                const system = `You are an expert editor. Rewrite the section titled "${cluster.label}".
+                        Maintain the 19-minute-read depth and nuance. Do not summarize.`;
+
+                const user = `Context: ${sourceText.slice(0, 1000)}...
+                      Target Propositions for this section:
+                      ${clusterProps.map(p => `${p.id}: ${p.text}`).join('\n')}`;
+
+                // Stream this specific chunk into the UI
+                await llm.complete(system, user, (chunk) => {
+                    el.textContent += chunk;
+                    el.scrollTop = el.scrollHeight;
+                });
+
+                el.textContent += "\n\n"; // Add spacing between sections
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // SIMPLE WORD DIFF
+        // ══════════════════════════════════════════════════════════════
+        function buildDiff(original, proposed) {
+            const el = document.getElementById('dc-diff');
+            const ow = original.split(/\s+/);
+            const pw = proposed.split(/\s+/);
+
+            // Very simple LCS-based diff
+            let html = '';
+            let oi = 0, pi = 0;
+            while (oi < ow.length || pi < pw.length) {
+                if (oi < ow.length && pi < pw.length && ow[oi] === pw[pi]) {
+                    html += ow[oi] + ' ';
+                    oi++; pi++;
+                } else if (pi < pw.length && (oi >= ow.length || !ow.slice(oi, oi + 5).includes(pw[pi]))) {
+                    html += `<span class="diff-add">${pw[pi]} </span>`;
+                    pi++;
+                } else {
+                    html += `<span class="diff-del">${ow[oi]} </span>`;
+                    oi++;
+                }
+            }
+            el.innerHTML = `<div class="prose-area" style="font-size:10.5px">${html}</div>`;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // RENDER MATRICES
+        // ══════════════════════════════════════════════════════════════
+        function renderCurrentMatrix(data) {
+            const sc = score(data);
+            const el = document.getElementById('ms-current');
+            el.innerHTML = '';
+            el.appendChild(buildMatrix(data, buildRelMap(data), 'current', null));
+            document.getElementById('score-current').textContent = `fit: ${Math.round(sc.genreFit * 100)}%`;
+        }
+
+        function renderProposedMatrix(data) {
+            const sc = score(data);
+            const el = document.getElementById('ms-proposed');
+            el.innerHTML = '';
+            el.appendChild(buildMatrix(data, buildRelMap(data), 'proposed', null));
+            document.getElementById('score-proposed').textContent = `fit: ${Math.round(sc.genreFit * 100)}%`;
+        }
+
+        function renderDeltaMatrix(curr, prop) {
+            const el = document.getElementById('ms-delta');
+            el.innerHTML = '';
+            el.appendChild(buildDeltaMatrix(curr, prop));
+
+            // Score delta: improvement
+            const sc = score(curr);
+            const sp = score(prop);
+            const diff = Math.round((sp.genreFit - sc.genreFit) * 100);
+            document.getElementById('score-delta').textContent = `Δ ${diff >= 0 ? '+' : ''}${diff}%`;
+        }
+
+        function updateScoreBadges() {
+            if (!currentData) return;
+            const sc = score(currentData);
+            document.getElementById('score-current').textContent = `fit: ${Math.round(sc.genreFit * 100)}%`;
+            if (proposedData) {
+                const sp = score(proposedData);
+                document.getElementById('score-proposed').textContent = `fit: ${Math.round(sp.genreFit * 100)}%`;
+                const diff = Math.round((sp.genreFit - sc.genreFit) * 100);
+                document.getElementById('score-delta').textContent = `Δ ${diff >= 0 ? '+' : ''}${diff}%`;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // BUILD MATRIX ELEMENT
