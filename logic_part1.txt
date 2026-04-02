@@ -1,0 +1,239 @@
+                { id: 2, text: "The electron is the basic unit of charge.", position: 0.05 },
+                { id: 3, text: "The electron is an impractical unit of charge.", position: 0.08 },
+                { id: 4, text: "The coulomb is the practical unit of charge.", position: 0.11 },
+                { id: 5, text: "Current is a flow of charge.", position: 0.20 },
+                { id: 6, text: "Current is measured in coulombs per second.", position: 0.24 },
+                { id: 7, text: "One coulomb per second is called an ampere.", position: 0.27 },
+                { id: 8, text: "When current flows, work is done.", position: 0.35 },
+                { id: 9, text: "Energy is used when work is done.", position: 0.38 },
+                { id: 10, text: "Energy must be supplied for current to flow.", position: 0.42 },
+                { id: 11, text: "EMF measures the rate at which energy is supplied.", position: 0.46 },
+                { id: 12, text: "Energy is measured in joules.", position: 0.50 }
+            ],
+            relations: [
+                { from: 1, to: 2, type: "assoc", justification: "Both establish the concept of electric charge." },
+                { from: 1, to: 4, type: "assoc", justification: "Both concern defining charge." },
+                { from: 2, to: 3, type: "assoc", justification: "Both address the electron as a unit." },
+                { from: 2, to: 4, type: "disc", justification: "Electron vs coulomb: practical vs impractical unit." },
+                { from: 3, to: 4, type: "disc", justification: "Direct contrast: impractical vs practical unit." },
+                { from: 4, to: 5, type: "dep", justification: "Current as flow of charge requires prior definition of charge unit." },
+                { from: 5, to: 6, type: "dep", justification: "Measuring current in coulombs/sec requires understanding current." },
+                { from: 6, to: 7, type: "dep", justification: "Ampere is defined as one coulomb per second." },
+                { from: 7, to: 8, type: "assoc", justification: "Current flow is associated with work being done." },
+                { from: 8, to: 9, type: "dep", justification: "Energy use depends on understanding that work is done." },
+                { from: 9, to: 10, type: "dep", justification: "Energy must be supplied follows from energy being used." },
+                { from: 10, to: 11, type: "dep", justification: "EMF is defined in terms of energy supply rate." },
+                { from: 9, to: 12, type: "assoc", justification: "Both concern energy; joules measure the energy in rule 9." },
+                { from: 11, to: 12, type: "assoc", justification: "EMF rate is measured in units related to joules." },
+                { from: 5, to: 8, type: "assoc", justification: "Current flow and work done are associated phenomena." },
+                { from: 6, to: 9, type: "assoc", justification: "Rate of charge flow associated with rate of energy use." }
+            ],
+            clusters: [
+                { label: "Charge", ids: [1, 2, 3, 4] },
+                { label: "Current", ids: [5, 6, 7] },
+                { label: "Energy & EMF", ids: [8, 9, 10, 11, 12] }
+            ]
+        };
+
+        // ══════════════════════════════════════════════════════════════
+        // STATE
+        // ══════════════════════════════════════════════════════════════
+        let currentData = null;
+        let proposedData = null;
+        let loopRunning = false;
+        let loopStop = false;
+        let paretoFront = [];
+        let logLines = [];
+
+        // ══════════════════════════════════════════════════════════════
+        // UTILITIES
+        // ══════════════════════════════════════════════════════════════
+        function buildRelMap(data) {
+            const m = {};
+            for (const r of data.relations) {
+                const a = Math.min(r.from, r.to), b = Math.max(r.from, r.to);
+                m[`${a}-${b}`] = r;
+            }
+            return m;
+        }
+        function idxMap(data) {
+            const m = {};
+            data.propositions.forEach((p, i) => m[p.id] = i);
+            return m;
+        }
+        function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+        function setErr(msg) { document.getElementById('err-msg').textContent = msg; }
+        function log(msg) {
+            logLines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+            const el = document.getElementById('dc-log');
+            el.innerHTML = logLines.slice(-80).map(l => `<div>${l}</div>`).join('');
+            el.scrollTop = el.scrollHeight;
+        }
+        function setStatus(msg) {
+            document.getElementById('status-msg') && (document.getElementById('status-msg').textContent = msg);
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // SCORING
+        // ══════════════════════════════════════════════════════════════
+        function score(data) {
+            const props = data.propositions;
+            const n = props.length;
+            const relMap = buildRelMap(data);
+            const i2i = idxMap(data);
+            const targets = GENRE_TARGETS[data.genre] || GENRE_TARGETS.expository;
+
+            // diagonal tightness
+            let distSum = 0, rc = 0;
+            for (const key of Object.keys(relMap)) {
+                const [a, b] = key.split('-').map(Number);
+                const ia = i2i[a], ib = i2i[b];
+                if (ia === undefined || ib === undefined) continue;
+                distSum += Math.abs(ia - ib); rc++;
+            }
+            const tightness = rc ? Math.max(0, 1 - distSum / rc / (n - 1)) : 0;
+
+            // within-cluster density
+            let wcTotal = 0, wcFilled = 0;
+            for (const cl of (data.clusters || [])) {
+                for (let a = 0; a < cl.ids.length; a++) for (let b = a + 1; b < cl.ids.length; b++) {
+                    const ka = Math.min(cl.ids[a], cl.ids[b]), kb = Math.max(cl.ids[a], cl.ids[b]);
+                    wcTotal++; if (relMap[`${ka}-${kb}`]) wcFilled++;
+                }
+            }
+            const clusterDensity = wcTotal ? wcFilled / wcTotal : 0;
+
+            // breaks
+            const breaks = [];
+            for (let i = 0; i < n - 1; i++) {
+                const ia = props[i].id, ib = props[i + 1].id;
+                const ka = Math.min(ia, ib), kb = Math.max(ia, ib);
+                if (!relMap[`${ka}-${kb}`]) breaks.push({ idx: i, fromId: ia, toId: ib, fromText: props[i].text, toText: props[i + 1].text });
+            }
+
+            // overall density
+            const possible = n * (n - 1) / 2;
+            const density = possible ? rc / possible : 0;
+
+            // justification coverage
+            const justCov = data.relations.length ? data.relations.filter(r => r.justification).length / data.relations.length : 0;
+
+            // genre fit
+            const hits = [
+                Math.min(1, tightness / (targets.tightness || 0.5)),
+                Math.min(1, clusterDensity / (targets.cluster_density || 0.5)),
+                breaks.length <= (targets.breaks_max || 2) ? 1 : Math.max(0, 1 - (breaks.length - targets.breaks_max) / 5)
+            ];
+            const genreFit = hits.reduce((a, b) => a + b, 0) / hits.length;
+
+            return { tightness, clusterDensity, density, breaks, justCov, genreFit, relMap, targets, rc };
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // NSGA-II STYLE OPTIMISER (bandwidth minimisation)
+        // Objectives: 1) min bandwidth  2) max cluster density  3) min breaks
+        // ══════════════════════════════════════════════════════════════
+        function bandwidth(props, relMap) {
+            const i2i = {}; props.forEach((p, i) => i2i[p.id] = i);
+            let s = 0;
+            for (const k of Object.keys(relMap)) {
+                const [a, b] = k.split('-').map(Number);
+                const ia = i2i[a], ib = i2i[b];
+                if (ia !== undefined && ib !== undefined) s += Math.abs(ia - ib);
+            }
+            return s;
+        }
+
+        function clusterDensityFor(props, relMap, clusters) {
+            const i2i = {}; props.forEach((p, i) => i2i[p.id] = i);
+            let t = 0, f = 0;
+            for (const cl of (clusters || [])) {
+                for (let a = 0; a < cl.ids.length; a++) for (let b = a + 1; b < cl.ids.length; b++) {
+                    const ka = Math.min(cl.ids[a], cl.ids[b]), kb = Math.max(cl.ids[a], cl.ids[b]);
+                    t++; if (relMap[`${ka}-${kb}`]) f++;
+                }
+            }
+            return t ? f / t : 0;
+        }
+
+        function breaksFor(props, relMap) {
+            let br = 0;
+            for (let i = 0; i < props.length - 1; i++) {
+                const ka = Math.min(props[i].id, props[i + 1].id), kb = Math.max(props[i].id, props[i + 1].id);
+                if (!relMap[`${ka}-${kb}`]) br++;
+            }
+            return br;
+        }
+
+        function objectives(props, relMap, clusters) {
+            return {
+                bw: bandwidth(props, relMap),
+                cd: clusterDensityFor(props, relMap, clusters),
+                br: breaksFor(props, relMap)
+            };
+        }
+
+        function dominates(a, b) {
+            // a dominates b if better or equal on all, strictly better on at least one
+            // min bw, max cd, min br
+            return a.bw <= b.bw && a.cd >= b.cd && a.br <= b.br &&
+                (a.bw < b.bw || a.cd > b.cd || a.br < b.br);
+        }
+
+        // Single optimiser step — random swap + accept if improves bandwidth
+        function optimiserStep(data) {
+            const relMap = buildRelMap(data);
+            const props = [...data.propositions];
+            const n = props.length;
+            let best = bandwidth(props, relMap);
+
+            // Try n*2 random swaps, keep improvements
+            for (let k = 0; k < n * 2; k++) {
+                const i = Math.floor(Math.random() * n), j = Math.floor(Math.random() * n);
+                if (i === j) continue;
+                [props[i], props[j]] = [props[j], props[i]];
+                const bw = bandwidth(props, relMap);
+                if (bw < best) { best = bw; }
+                else { [props[i], props[j]] = [props[j], props[i]]; }
+            }
+            return { ...data, propositions: props };
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // COMPUTE DELTA
+        // ══════════════════════════════════════════════════════════════
+        function computeDelta(curr, prop) {
+            // Returns per-cell delta for cells that differ
+            // Both matrices may have different proposition sets (proposed may have extras)
+            const currRelMap = buildRelMap(curr);
+            const propRelMap = buildRelMap(prop);
+
+            // Union of all proposition ids
+            const allIds = [...new Set([
+                ...curr.propositions.map(p => p.id),
+                ...prop.propositions.map(p => p.id)
+            ])].sort((a, b) => a - b);
+
+            const delta = []; // {a, b, status: 'fixed'|'added'|'removed'|'conflict'|'unchanged'}
+
+            for (let i = 0; i < allIds.length; i++) for (let j = i + 1; j < allIds.length; j++) {
+                const a = allIds[i], b = allIds[j];
+                const key = `${a}-${b}`;
+                const inCurr = !!currRelMap[key];
+                const inProp = !!propRelMap[key];
+
+                const ci = curr.propositions.findIndex(p => p.id === a);
+                const cj = curr.propositions.findIndex(p => p.id === b);
+                const onDiag = ci >= 0 && cj >= 0 && Math.abs(ci - cj) === 1;
+
+                if (!inCurr && inProp) delta.push({ a, b, status: 'added', rel: propRelMap[key] });
+                else if (inCurr && !inProp) delta.push({ a, b, status: 'removed', rel: currRelMap[key] });
+                else if (!inCurr && !inProp && onDiag) delta.push({ a, b, status: 'break' });
+                else if (inCurr && inProp && !onDiag && Math.abs(ci - cj) > 3) delta.push({ a, b, status: 'conflict', rel: currRelMap[key] });
+            }
+            return delta;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // MAIN LOOP
+        // ══════════════════════════════════════════════════════════════
