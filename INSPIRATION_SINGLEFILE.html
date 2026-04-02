@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conceptual Matrix Mapper v3</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap');
+
+        :root {
+            --bg: #0b0b0c;
+            --surface: #131315;
+            --surface2: #1a1a1d;
+            --surface3: #222226;
+            --border: #272729;
+            --border2: #333337;
+            --text: #e2e2dc;
+            --text-dim: #888880;
+            --text-muted: #3a3a36;
+            --assoc: #4a9eff;
+            --disc: #ff6b35;
+            --dep: #7dde8a;
+            --gap: #c084fc;
+            --brk: #ff3366;
+            --fixed: #00e5a0;
+            --conflict: #f59e0b;
+            --empty: #1a1a1d;
+            --cell: 24px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* HEADER */
+        header {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            font-family: 'Instrument Serif', serif;
+            font-style: italic;
+            font-size: 17px;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+        }
+
+        .version {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            background: var(--surface2);
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+
+        .tab-bar {
+            margin-left: auto;
+            display: flex;
+            gap: 2px;
+        }
+
+        .tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: 'DM Mono', monospace;
+            font-size: 9.5px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+
+        .tab.active {
+            background: var(--surface2);
+            border-color: var(--border2);
+            color: var(--text);
+        }
+
+        .tab:hover:not(.active) {
+            border-color: var(--border2);
+            color: var(--text-dim);
+        }
+
+        /* MAIN */
+        .main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 272px;
+            min-width: 272px;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            background: var(--surface);
+            overflow: hidden;
+        }
+
+        .sb-section {
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .sb-label {
+            padding: 7px 12px;
+            font-size: 9px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sb-label button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: 'DM Mono', monospace;
+            font-size: 8.5px;
+            padding: 2px 7px;
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+
+        .sb-label button:hover {
+            border-color: var(--assoc);
+            color: var(--assoc);
+        }
+
+        textarea {
+            background: var(--surface);
+            border: none;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            line-height: 1.6;
+            padding: 10px 12px;
+            resize: none;
+            outline: none;
+            width: 100%;
+        }
+
+        textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* API KEY */
+        .api-row {
+            display: flex;
+            gap: 6px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+        }
+
+        .api-row input {
+            flex: 1;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            padding: 5px 8px;
+            outline: none;
+        }
+
+        .api-row input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .api-row input:focus {
+            border-color: var(--assoc);
+        }
+
+        .api-row label {
+            font-size: 9px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        /* BTN ROW */
+        .btn-row {
+            display: flex;
+            gap: 5px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 60px;
+            background: none;
+            border: 1px solid var(--border2);
+            color: var(--text-dim);
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            padding: 6px 4px;
+            cursor: pointer;
+            transition: all 0.12s;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: var(--surface2);
+            color: var(--text);
+        }
+
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .btn.primary {
+            border-color: var(--assoc);
+            color: var(--assoc);
+        }
+
+        .btn.primary:hover {
+            background: rgba(74, 158, 255, 0.1);
+        }
+
+        .btn.go {
+            border-color: var(--fixed);
+            color: var(--fixed);
+        }
+
+        .btn.go:hover {
+            background: rgba(0, 229, 160, 0.1);
+        }
+
+        .btn.danger {
+            border-color: var(--brk);
+            color: var(--brk);
+        }
+
+        .btn.danger:hover {
+            background: rgba(255, 51, 102, 0.1);
+        }
+
+        .err {
+            padding: 5px 12px;
+            font-size: 9.5px;
+            color: var(--disc);
+            min-height: 20px;
+        }
+
+        /* SCORES */
+        .scores-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 12px;
+        }
+
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .score-label {
+            font-size: 9.5px;
+            color: var(--text-dim);
+            flex: 1;
+        }
+
+        .score-bar-wrap {
+            width: 80px;
+            height: 5px;
+            background: var(--surface3);
+            border-radius: 3px;
+            overflow: hidden;
+            flex-shrink: 0;
+            margin: 0 8px;
+        }
+
+        .score-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .score-val {
+            font-size: 9.5px;
+            color: var(--text);
+            min-width: 28px;
+            text-align: right;
+        }
+
+        .sec-head {
+            font-size: 8.5px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 12px 0 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .gap-item {
+            padding: 5px 7px;
+            margin-bottom: 4px;
+            background: var(--surface2);
+            border-left: 2px solid var(--brk);
+            font-size: 9.5px;
+            line-height: 1.45;
+            color: var(--text-dim);
+        }
+
+        .gap-ids {
+            font-size: 8.5px;
+            color: var(--brk);
+            margin-bottom: 1px;
+        }
+
+        .sug-item {
+            padding: 5px 7px;
+            margin-bottom: 4px;
+            background: var(--surface2);
+            font-size: 9.5px;
+            line-height: 1.45;
+            color: var(--text-dim);
+        }
+
+        .sug-item.found {
+            border-left: 2px solid var(--fixed);
+        }
+
+        .sug-item.missing {
+            border-left: 2px solid var(--conflict);
+        }
+
+        .sug-badge {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 2px;
+        }
+
+        /* CONTENT */
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* LEGEND */
+        .legend {
+            display: flex;
+            gap: 14px;
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .li {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 9.5px;
+            color: var(--text-dim);
+        }
+
+        .ls {
+            width: 10px;
+            height: 10px;
+            border-radius: 1px;
+            flex-shrink: 0;
+        }
+
+        /* VIEWS */
+        .view {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        /* 3-PANEL MATRIX VIEW */
+        .panels-row {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .panel {
+            flex: 1;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .panel:last-child {
+            border-right: none;
+        }
+
+        .panel-head {
+            padding: 8px 14px 6px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .panel-title {
+            font-family: 'Instrument Serif', serif;
+            font-style: italic;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .panel-sub {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .panel-score {
+            margin-left: auto;
+            font-size: 9px;
+            color: var(--text-dim);
+        }
+
+        .matrix-scroll {
+            flex: 1;
+            overflow: auto;
+            padding: 14px;
+        }
+
+        /* BOTTOM DRAWER */
+        .drawer {
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            transition: height 0.25s ease;
+        }
+
+        .drawer.collapsed {
+            height: 32px;
+        }
+
+        .drawer.expanded {
+            height: 240px;
+        }
+
+        .drawer-tabs {
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            height: 32px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            gap: 2px;
+        }
+
+        .drawer-tab {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            cursor: pointer;
+            transition: all 0.1s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .drawer-tab.active {
+            color: var(--text);
+            border-bottom-color: var(--assoc);
+        }
+
+        .drawer-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+            display: none;
+        }
+
+        .drawer-content.active {
+            display: block;
+        }
+
+        .drawer-toggle {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0 4px;
+        }
+
+        .prose-area {
+            font-size: 11px;
+            line-height: 1.8;
+            color: var(--text-dim);
+            white-space: pre-wrap;
+        }
+
+        .diff-add {
+            background: rgba(0, 229, 160, 0.12);
+            color: var(--fixed);
+        }
+
+        .diff-del {
+            background: rgba(255, 51, 102, 0.10);
+            color: var(--brk);
+            text-decoration: line-through;
+        }
+
+        .stream-cursor {
+            display: inline-block;
+            width: 7px;
+            height: 12px;
+            background: var(--assoc);
+            animation: blink 0.7s step-end infinite;
+            vertical-align: text-bottom;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0
+            }
+        }
+
+        /* STATUS BAR */
+        .status-bar {
+            padding: 6px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 16px;
+            font-size: 9.5px;
+            color: var(--text-dim);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .stat {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .stat-val {
+            color: var(--text);
+        }
+
+        .status-msg {
+            margin-left: auto;
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 1.5px solid var(--border2);
+            border-top-color: var(--assoc);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        /* SCHEMA / PROMPT VIEWS */
+        .doc-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+        }
+
+        .doc-view h2 {
+            font-family: 'Instrument Serif', serif;
+            font-style: italic;
+            font-weight: 400;
+            font-size: 19px;
+            margin-bottom: 6px;
+        }
+
+        .doc-view p {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 14px;
+            line-height: 1.75;
+            max-width: 680px;
+        }
+
+        .doc-view pre {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 16px;
+            font-size: 10.5px;
+            line-height: 1.7;
+            color: var(--text-dim);
+            white-space: pre-wrap;
+            max-width: 780px;
+        }
+
+        /* TOOLTIP */
+        .tooltip {
+            position: fixed;
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            padding: 9px 12px;
+            font-size: 10px;
+            line-height: 1.6;
+            max-width: 300px;
+            pointer-events: none;
+            z-index: 9999;
+            display: none;
+            color: var(--text);
+        }
+
+        .tooltip strong {
+            display: block;
+            font-size: 8.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            margin-bottom: 3px;
+        }
+
+        .tooltip.assoc strong {
+            color: var(--assoc);
+        }
+
+        .tooltip.disc strong {
+            color: var(--disc);
+        }
+
+        .tooltip.dep strong {
+            color: var(--dep);
+        }
+
+        .tooltip.gap strong {
+            color: var(--gap);
+        }
+
+        .tooltip.fixed strong {
+            color: var(--fixed);
+        }
+
+        .tooltip.conflict strong {
+            color: var(--conflict);
+        }
+
+        .tooltip.brk strong {
+            color: var(--brk);
+        }
+
+        .tooltip .just {
+            margin-top: 5px;
+            font-size: 9px;
+            color: var(--text-muted);
+            font-style: italic;
+            border-top: 1px solid var(--border);
+            padding-top: 4px;
+        }
+
+        /* PARETO MINI CHART */
+        .pareto-wrap {
+            padding: 8px 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .pareto-title {
+            font-size: 8.5px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        canvas#pareto {
+            display: block;
+        }
+
+        /* GEN COUNTER */
+        .gen-badge {
+            font-size: 8.5px;
+            color: var(--fixed);
+            border: 1px solid var(--fixed);
+            padding: 1px 5px;
+            border-radius: 2px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Conceptual Matrix Mapper</h1>
+        <span class="version">v3</span>
+        <div class="tab-bar">
+            <button class="tab active" onclick="switchTab('matrix',this)">Matrix</button>
+            <button class="tab" onclick="switchTab('schema',this)">Schema</button>
+            <button class="tab" onclick="switchTab('prompt',this)">LLM Prompt</button>
+        </div>
+    </header>
+
+    <div class="main">
+
+        <!-- ═══ SIDEBAR ═══ -->
+        <div class="sidebar">
+            <div class="sb-section">
+                <div class="sb-label">JSON Input <button onclick="loadExample()">Example</button></div>
+                <textarea id="json-input" style="height:160px" placeholder='Paste matrix JSON here...'></textarea>
+            </div>
+            <div class="sb-section">
+                <div class="sb-label">Source Text <span style="font-size:8px;font-style:italic">(for LLM)</span></div>
+                <textarea id="source-text" style="height:80px"
+                    placeholder='Paste original source text here for LLM gap-filling and prose regeneration...'></textarea>
+            </div>
+            <div class="api-row">
+                <select id="api-provider"
+                    style="background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'DM Mono'; font-size:10px; padding:4px;">
+                    <option value="anthropic">Anthropic</option>
+                    <option value="gemini">Gemini</option>
+                </select>
+                <input type="password" id="api-key" placeholder="API Key...">
+            </div>
+            <div class="btn-row">
+                <button class="btn primary" onclick="parseAndRender()">Render →</button>
+                <button class="btn go" id="btn-optimise" onclick="runFullLoop()" disabled>▶ Run Loop</button>
+                <button class="btn danger" id="btn-stop" onclick="stopLoop()" disabled>■ Stop</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn" onclick="copyPrompt()">Copy Prompt</button>
+                <button class="btn" onclick="exportProposed()">Export JSON</button>
+            </div>
+            <div class="err" id="err-msg"></div>
+            <div class="scores-panel" id="scores-panel">
+                <div style="color:var(--text-muted);font-size:10px;font-style:italic">Load a matrix to begin.</div>
+            </div>
+            <div class="pareto-wrap" id="pareto-wrap" style="display:none">
+                <div class="pareto-title">Pareto front — tightness vs density</div>
+                <canvas id="pareto" width="248" height="80"></canvas>
+            </div>
+        </div>
+
+        <!-- ═══ CONTENT ═══ -->
+        <div class="content">
+
+            <!-- LEGEND -->
+            <div class="legend">
+                <div class="li">
+                    <div class="ls" style="background:var(--assoc)"></div>Association
+                </div>
+                <div class="li">
+                    <div class="ls" style="background:var(--disc)"></div>Discrimination
+                </div>
+                <div class="li">
+                    <div class="ls" style="background:var(--dep)"></div>Dependency
+                </div>
+                <div class="li">
+                    <div class="ls" style="background:var(--gap)"></div>Deliberate gap
+                </div>
+                <div class="li">
+                    <div class="ls" style="background:var(--brk);opacity:.7"></div>Break
+                </div>
+                <div class="li">
+                    <div class="ls" style="background:var(--fixed)"></div>Fixed (proposed)
+                </div>
+                <div class="li">
+                    <div class="ls" style="background:var(--conflict)"></div>Conflation
+                </div>
+            </div>
+
+            <!-- MATRIX VIEW -->
+            <div class="view active" id="view-matrix">
+                <div class="panels-row">
+                    <div class="panel" id="panel-current">
+                        <div class="panel-head">
+                            <span class="panel-title">Current</span>
+                            <span class="panel-sub">as extracted</span>
+                            <span class="panel-score" id="score-current">—</span>
+                        </div>
+                        <div class="matrix-scroll" id="ms-current">
+                            <div style="color:var(--text-muted);font-size:10px;font-style:italic;padding:20px">Load JSON
+                                and click Render.</div>
+                        </div>
+                    </div>
+                    <div class="panel" id="panel-proposed">
+                        <div class="panel-head">
+                            <span class="panel-title">Proposed</span>
+                            <span class="panel-sub">optimised</span>
+                            <span class="panel-score" id="score-proposed">—</span>
+                            <span class="gen-badge" id="gen-badge" style="display:none">gen 0</span>
+                        </div>
+                        <div class="matrix-scroll" id="ms-proposed">
+                            <div style="color:var(--text-muted);font-size:10px;font-style:italic;padding:20px">Run the
+                                loop to see the optimised matrix.</div>
+                        </div>
+                    </div>
+                    <div class="panel" id="panel-delta">
+                        <div class="panel-head">
+                            <span class="panel-title">Error Δ</span>
+                            <span class="panel-sub">proposed − current</span>
+                            <span class="panel-score" id="score-delta">—</span>
+                        </div>
+                        <div class="matrix-scroll" id="ms-delta">
+                            <div style="color:var(--text-muted);font-size:10px;font-style:italic;padding:20px">Delta
+                                appears after optimisation.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM DRAWER -->
+                <div class="drawer collapsed" id="drawer">
+                    <div class="drawer-tabs">
+                        <button class="drawer-tab active" onclick="switchDrawer('source',this)">Source text</button>
+                        <button class="drawer-tab" onclick="switchDrawer('proposed-text',this)">Proposed text</button>
+                        <button class="drawer-tab" onclick="switchDrawer('diff',this)">Diff</button>
+                        <button class="drawer-tab" onclick="switchDrawer('log',this)">Log</button>
+                        <button class="drawer-toggle" onclick="toggleDrawer()" id="drawer-toggle">▲</button>
+                    </div>
+                    <div class="drawer-content active prose-area" id="dc-source">Paste source text in the sidebar to see
+                        it here.</div>
+                    <div class="drawer-content prose-area" id="dc-proposed-text"><span
+                            style="color:var(--text-muted);font-style:italic">Regenerated prose appears here after the
+                            loop completes.</span></div>
+                    <div class="drawer-content prose-area" id="dc-diff"><span
+                            style="color:var(--text-muted);font-style:italic">Diff appears here.</span></div>
+                    <div class="drawer-content" id="dc-log"
+                        style="font-size:9.5px;line-height:1.7;color:var(--text-dim)"></div>
+                </div>
+            </div>
+
+            <!-- SCHEMA VIEW -->
+            <div class="view" id="view-schema">
+                <div class="doc-view">
+                    <h2>JSON Schema</h2>
+                    <p>Stable contract for all matrix data. The <code style="color:var(--disc)">justification</code>
+                        field is the anti-hallucination audit trail — every LLM-generated relation must cite or explain
+                        its source.</p>
+                    <pre id="schema-pre"></pre>
+                </div>
+            </div>
+
+            <!-- PROMPT VIEW -->
+            <div class="view" id="view-prompt">
+                <div class="doc-view">
+                    <h2>LLM Extraction Prompt (3-pass)</h2>
+                    <p>Copy this into any LLM (Claude, GPT-4, Gemini). The three-pass structure forces justification
+                        before JSON emission. Paste your source text where indicated.</p>
+                    <pre id="prompt-pre"></pre>
+                </div>
+            </div>
+
+            <div class="status-bar" id="status-bar" style="display:none"></div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // ══════════════════════════════════════════════════════════════
+        // LLM CLIENT — provider-agnostic abstraction
+        // ══════════════════════════════════════════════════════════════
+        /**
+ * LLMClient: A provider-agnostic wrapper for Anthropic and Gemini.
+ * Implements Structured Outputs (JSON Schema) and Streaming.
+ */
+        class LLMClient {
+            constructor() { }
+
+            /**
+             * Main entry point for completions.
+             * @param {string} system - The system prompt/instructions.
+             * @param {string} user - The user prompt.
+             * @param {function} onChunk - Optional callback for streaming (chunk, fullText).
+             * @param {object} schema - Optional JSON Schema for structured outputs.
+             */
+            async complete(system, user, onChunk, schema = null) {
+                const provider = document.getElementById('api-provider').value;
+                const key = document.getElementById('api-key').value.trim();
+
+                if (!key) {
+                    throw new Error(`No API key provided for ${provider}. Please enter it in the sidebar.`);
+                }
+
+                if (provider === 'anthropic') {
+                    return this._anthropic(key, system, user, onChunk);
+                } else if (provider === 'gemini') {
+                    return this._gemini(key, system, user, onChunk, schema);
+                } else {
+                    throw new Error(`Unsupported provider: ${provider}`);
+                }
+            }
+
+            /**
+             * Google Gemini Implementation (v1beta REST API)
+             */
+            async _gemini(key, system, user, onChunk, schema) {
+                const model = "gemini-3-flash-preview";
+
+                // Structured output (schema) is most reliable in non-streaming mode
+                const isStreaming = !!onChunk && !schema;
+                const endpoint = isStreaming ? 'streamGenerateContent?alt=sse' : 'generateContent';
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${endpoint}`;
+
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [{ text: user }]
+                    }],
+                    systemInstruction: {
+                        parts: [{ text: system }]
+                    },
+                    generationConfig: {
+                        temperature: schema ? 0.1 : 0.7,
+                        maxOutputTokens: 4096
+                    }
+                };
+
+                // Apply Structured Output (Constrained Decoding)
+                if (schema) {
+                    payload.generationConfig.responseMimeType = "application/json";
+                    payload.generationConfig.responseJsonSchema = schema;
+                }
+
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': key
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resp.ok) {
+                    const errData = await resp.json().catch(() => ({ error: { message: resp.statusText } }));
+                    throw new Error(errData.error?.message || `Gemini Error: ${resp.status}`);
+                }
+
+                // Handle Non-Streaming (Structured Data)
+                if (!isStreaming) {
+                    const data = await resp.json();
+                    return data.candidates[0].content.parts[0].text;
+                }
+
+                // Handle Streaming (Prose)
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data:')) continue;
+                        try {
+                            const data = JSON.parse(line.slice(5));
+                            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                            if (text) {
+                                fullText += text;
+                                onChunk(text, fullText);
+                            }
+                        } catch (e) {
+                            // Ignore partial JSON chunks in stream
+                        }
+                    }
+                }
+                return fullText;
+            }
+
+            /**
+             * Anthropic Claude Implementation
+             */
+            async _anthropic(key, system, user, onChunk) {
+                const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': key,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-3-5-sonnet-20240620',
+                        max_tokens: 4096,
+                        stream: !!onChunk,
+                        system: system,
+                        messages: [{ role: 'user', content: user }]
+                    })
+                });
+
+                if (!resp.ok) {
+                    const errData = await resp.json().catch(() => ({ error: { message: resp.statusText } }));
+                    throw new Error(errData.error?.message || `Anthropic Error: ${resp.status}`);
+                }
+
+                if (!onChunk) {
+                    const data = await resp.json();
+                    return data.content.map(b => b.text || '').join('');
+                }
+
+                // Handle Streaming
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const lines = decoder.decode(value).split('\n');
+                    for (const line of lines) {
+                        if (!line.startsWith('data:')) continue;
+                        const raw = line.slice(5).trim();
+                        if (raw === '[DONE]') continue;
+
+                        try {
+                            const ev = JSON.parse(raw);
+                            if (ev.type === 'content_block_delta' && ev.delta?.text) {
+                                fullText += ev.delta.text;
+                                onChunk(ev.delta.text, fullText);
+                            }
+                        } catch (e) {
+                            // Ignore partial JSON chunks
+                        }
+                    }
+                }
+                return fullText;
+            }
+        }
+        const llm = new LLMClient();
+
+        // ══════════════════════════════════════════════════════════════
+        // CONSTANTS
+        // ══════════════════════════════════════════════════════════════
+        const REL_COLORS = { assoc: 'var(--assoc)', disc: 'var(--disc)', dep: 'var(--dep)', gap: 'var(--gap)' };
+        const REL_LABELS = { assoc: 'Association', disc: 'Discrimination', dep: 'Dependency', gap: 'Deliberate gap' };
+
+        const GENRE_TARGETS = {
+            expository: { tightness: 0.75, cluster_density: 0.80, breaks_max: 1, density: 0.40 },
+            scientific: { tightness: 0.85, cluster_density: 0.85, breaks_max: 0, density: 0.35 },
+            argumentative: { tightness: 0.65, cluster_density: 0.70, breaks_max: 2, density: 0.45 },
+            narrative: { tightness: 0.40, cluster_density: 0.50, breaks_max: 5, density: 0.25 },
+            legal: { tightness: 0.80, cluster_density: 0.80, breaks_max: 1, density: 0.50 },
+            lyric: { tightness: 0.30, cluster_density: 0.40, breaks_max: 8, density: 0.20 }
+        };
+
+        // ══════════════════════════════════════════════════════════════
+        // EXAMPLE DATA
+        // ══════════════════════════════════════════════════════════════
+        const EXAMPLE = {
+            title: "Ohm's Law — Rules 1–12",
+            source: "Leith, G. (1967). What Is Programmed Learning? BBC Publications.",
+            genre: "expository",
+            propositions: [
+                { id: 1, text: "An electric charge is produced by friction.", position: 0.02 },
+                { id: 2, text: "The electron is the basic unit of charge.", position: 0.05 },
+                { id: 3, text: "The electron is an impractical unit of charge.", position: 0.08 },
+                { id: 4, text: "The coulomb is the practical unit of charge.", position: 0.11 },
+                { id: 5, text: "Current is a flow of charge.", position: 0.20 },
+                { id: 6, text: "Current is measured in coulombs per second.", position: 0.24 },
+                { id: 7, text: "One coulomb per second is called an ampere.", position: 0.27 },
+                { id: 8, text: "When current flows, work is done.", position: 0.35 },
+                { id: 9, text: "Energy is used when work is done.", position: 0.38 },
+                { id: 10, text: "Energy must be supplied for current to flow.", position: 0.42 },
+                { id: 11, text: "EMF measures the rate at which energy is supplied.", position: 0.46 },
+                { id: 12, text: "Energy is measured in joules.", position: 0.50 }
+            ],
+            relations: [
+                { from: 1, to: 2, type: "assoc", justification: "Both establish the concept of electric charge." },
+                { from: 1, to: 4, type: "assoc", justification: "Both concern defining charge." },
+                { from: 2, to: 3, type: "assoc", justification: "Both address the electron as a unit." },
+                { from: 2, to: 4, type: "disc", justification: "Electron vs coulomb: practical vs impractical unit." },
+                { from: 3, to: 4, type: "disc", justification: "Direct contrast: impractical vs practical unit." },
+                { from: 4, to: 5, type: "dep", justification: "Current as flow of charge requires prior definition of charge unit." },
+                { from: 5, to: 6, type: "dep", justification: "Measuring current in coulombs/sec requires understanding current." },
+                { from: 6, to: 7, type: "dep", justification: "Ampere is defined as one coulomb per second." },
+                { from: 7, to: 8, type: "assoc", justification: "Current flow is associated with work being done." },
+                { from: 8, to: 9, type: "dep", justification: "Energy use depends on understanding that work is done." },
+                { from: 9, to: 10, type: "dep", justification: "Energy must be supplied follows from energy being used." },
+                { from: 10, to: 11, type: "dep", justification: "EMF is defined in terms of energy supply rate." },
+                { from: 9, to: 12, type: "assoc", justification: "Both concern energy; joules measure the energy in rule 9." },
+                { from: 11, to: 12, type: "assoc", justification: "EMF rate is measured in units related to joules." },
+                { from: 5, to: 8, type: "assoc", justification: "Current flow and work done are associated phenomena." },
+                { from: 6, to: 9, type: "assoc", justification: "Rate of charge flow associated with rate of energy use." }
+            ],
+            clusters: [
+                { label: "Charge", ids: [1, 2, 3, 4] },
+                { label: "Current", ids: [5, 6, 7] },
+                { label: "Energy & EMF", ids: [8, 9, 10, 11, 12] }
+            ]
+        };
+
+        // ══════════════════════════════════════════════════════════════
+        // STATE
+        // ══════════════════════════════════════════════════════════════
+        let currentData = null;
+        let proposedData = null;
+        let loopRunning = false;
+        let loopStop = false;
+        let paretoFront = [];
+        let logLines = [];
+
+        // ══════════════════════════════════════════════════════════════
+        // UTILITIES
+        // ══════════════════════════════════════════════════════════════
+        function buildRelMap(data) {
+            const m = {};
+            for (const r of data.relations) {
+                const a = Math.min(r.from, r.to), b = Math.max(r.from, r.to);
+                m[`${a}-${b}`] = r;
+            }
+            return m;
+        }
+        function idxMap(data) {
+            const m = {};
+            data.propositions.forEach((p, i) => m[p.id] = i);
+            return m;
+        }
+        function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+        function setErr(msg) { document.getElementById('err-msg').textContent = msg; }
+        function log(msg) {
+            logLines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+            const el = document.getElementById('dc-log');
+            el.innerHTML = logLines.slice(-80).map(l => `<div>${l}</div>`).join('');
+            el.scrollTop = el.scrollHeight;
+        }
+        function setStatus(msg) {
+            document.getElementById('status-msg') && (document.getElementById('status-msg').textContent = msg);
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // SCORING
+        // ══════════════════════════════════════════════════════════════
+        function score(data) {
+            const props = data.propositions;
+            const n = props.length;
+            const relMap = buildRelMap(data);
+            const i2i = idxMap(data);
+            const targets = GENRE_TARGETS[data.genre] || GENRE_TARGETS.expository;
+
+            // diagonal tightness
+            let distSum = 0, rc = 0;
+            for (const key of Object.keys(relMap)) {
+                const [a, b] = key.split('-').map(Number);
+                const ia = i2i[a], ib = i2i[b];
+                if (ia === undefined || ib === undefined) continue;
+                distSum += Math.abs(ia - ib); rc++;
+            }
+            const tightness = rc ? Math.max(0, 1 - distSum / rc / (n - 1)) : 0;
+
+            // within-cluster density
+            let wcTotal = 0, wcFilled = 0;
+            for (const cl of (data.clusters || [])) {
+                for (let a = 0; a < cl.ids.length; a++) for (let b = a + 1; b < cl.ids.length; b++) {
+                    const ka = Math.min(cl.ids[a], cl.ids[b]), kb = Math.max(cl.ids[a], cl.ids[b]);
+                    wcTotal++; if (relMap[`${ka}-${kb}`]) wcFilled++;
+                }
+            }
+            const clusterDensity = wcTotal ? wcFilled / wcTotal : 0;
+
+            // breaks
+            const breaks = [];
+            for (let i = 0; i < n - 1; i++) {
+                const ia = props[i].id, ib = props[i + 1].id;
+                const ka = Math.min(ia, ib), kb = Math.max(ia, ib);
+                if (!relMap[`${ka}-${kb}`]) breaks.push({ idx: i, fromId: ia, toId: ib, fromText: props[i].text, toText: props[i + 1].text });
+            }
+
+            // overall density
+            const possible = n * (n - 1) / 2;
+            const density = possible ? rc / possible : 0;
+
+            // justification coverage
+            const justCov = data.relations.length ? data.relations.filter(r => r.justification).length / data.relations.length : 0;
+
+            // genre fit
+            const hits = [
+                Math.min(1, tightness / (targets.tightness || 0.5)),
+                Math.min(1, clusterDensity / (targets.cluster_density || 0.5)),
+                breaks.length <= (targets.breaks_max || 2) ? 1 : Math.max(0, 1 - (breaks.length - targets.breaks_max) / 5)
+            ];
+            const genreFit = hits.reduce((a, b) => a + b, 0) / hits.length;
+
+            return { tightness, clusterDensity, density, breaks, justCov, genreFit, relMap, targets, rc };
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // NSGA-II STYLE OPTIMISER (bandwidth minimisation)
+        // Objectives: 1) min bandwidth  2) max cluster density  3) min breaks
+        // ══════════════════════════════════════════════════════════════
+        function bandwidth(props, relMap) {
+            const i2i = {}; props.forEach((p, i) => i2i[p.id] = i);
+            let s = 0;
+            for (const k of Object.keys(relMap)) {
+                const [a, b] = k.split('-').map(Number);
+                const ia = i2i[a], ib = i2i[b];
+                if (ia !== undefined && ib !== undefined) s += Math.abs(ia - ib);
+            }
+            return s;
+        }
+
+        function clusterDensityFor(props, relMap, clusters) {
+            const i2i = {}; props.forEach((p, i) => i2i[p.id] = i);
+            let t = 0, f = 0;
+            for (const cl of (clusters || [])) {
+                for (let a = 0; a < cl.ids.length; a++) for (let b = a + 1; b < cl.ids.length; b++) {
+                    const ka = Math.min(cl.ids[a], cl.ids[b]), kb = Math.max(cl.ids[a], cl.ids[b]);
+                    t++; if (relMap[`${ka}-${kb}`]) f++;
+                }
+            }
+            return t ? f / t : 0;
+        }
+
+        function breaksFor(props, relMap) {
+            let br = 0;
+            for (let i = 0; i < props.length - 1; i++) {
+                const ka = Math.min(props[i].id, props[i + 1].id), kb = Math.max(props[i].id, props[i + 1].id);
+                if (!relMap[`${ka}-${kb}`]) br++;
+            }
+            return br;
+        }
+
+        function objectives(props, relMap, clusters) {
+            return {
+                bw: bandwidth(props, relMap),
+                cd: clusterDensityFor(props, relMap, clusters),
+                br: breaksFor(props, relMap)
+            };
+        }
+
+        function dominates(a, b) {
+            // a dominates b if better or equal on all, strictly better on at least one
+            // min bw, max cd, min br
+            return a.bw <= b.bw && a.cd >= b.cd && a.br <= b.br &&
+                (a.bw < b.bw || a.cd > b.cd || a.br < b.br);
+        }
+
+        // Single optimiser step — random swap + accept if improves bandwidth
+        function optimiserStep(data) {
+            const relMap = buildRelMap(data);
+            const props = [...data.propositions];
+            const n = props.length;
+            let best = bandwidth(props, relMap);
+
+            // Try n*2 random swaps, keep improvements
+            for (let k = 0; k < n * 2; k++) {
+                const i = Math.floor(Math.random() * n), j = Math.floor(Math.random() * n);
+                if (i === j) continue;
+                [props[i], props[j]] = [props[j], props[i]];
+                const bw = bandwidth(props, relMap);
+                if (bw < best) { best = bw; }
+                else { [props[i], props[j]] = [props[j], props[i]]; }
+            }
+            return { ...data, propositions: props };
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // COMPUTE DELTA
+        // ══════════════════════════════════════════════════════════════
+        function computeDelta(curr, prop) {
+            // Returns per-cell delta for cells that differ
+            // Both matrices may have different proposition sets (proposed may have extras)
+            const currRelMap = buildRelMap(curr);
+            const propRelMap = buildRelMap(prop);
+
+            // Union of all proposition ids
+            const allIds = [...new Set([
+                ...curr.propositions.map(p => p.id),
+                ...prop.propositions.map(p => p.id)
+            ])].sort((a, b) => a - b);
+
+            const delta = []; // {a, b, status: 'fixed'|'added'|'removed'|'conflict'|'unchanged'}
+
+            for (let i = 0; i < allIds.length; i++) for (let j = i + 1; j < allIds.length; j++) {
+                const a = allIds[i], b = allIds[j];
+                const key = `${a}-${b}`;
+                const inCurr = !!currRelMap[key];
+                const inProp = !!propRelMap[key];
+
+                const ci = curr.propositions.findIndex(p => p.id === a);
+                const cj = curr.propositions.findIndex(p => p.id === b);
+                const onDiag = ci >= 0 && cj >= 0 && Math.abs(ci - cj) === 1;
+
+                if (!inCurr && inProp) delta.push({ a, b, status: 'added', rel: propRelMap[key] });
+                else if (inCurr && !inProp) delta.push({ a, b, status: 'removed', rel: currRelMap[key] });
+                else if (!inCurr && !inProp && onDiag) delta.push({ a, b, status: 'break' });
+                else if (inCurr && inProp && !onDiag && Math.abs(ci - cj) > 3) delta.push({ a, b, status: 'conflict', rel: currRelMap[key] });
+            }
+            return delta;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // MAIN LOOP
+        // ══════════════════════════════════════════════════════════════
+        async function runFullLoop() {
+            if (!currentData) { setErr('Load JSON first.'); return; }
+            loopStop = false;
+            loopRunning = true;
+            logLines = [];
+            paretoFront = [];
+            document.getElementById('btn-optimise').disabled = true;
+            document.getElementById('btn-stop').disabled = false;
+            openDrawer();
+            switchDrawer('log', document.querySelector('.drawer-tab:last-of-type'));
+
+            log('▶ Loop started');
+            log(`Genre: ${currentData.genre || 'expository'} | n=${currentData.propositions.length} | relations=${currentData.relations.length}`);
+
+            // ── Phase 1: NSGA-II reordering (animated) ──
+            log('Phase 1: Bandwidth optimisation (50 generations)');
+            let working = deepClone(currentData);
+            const relMap = buildRelMap(working);
+
+            for (let gen = 0; gen < 50; gen++) {
+                if (loopStop) { log('■ Stopped by user'); break; }
+                working = optimiserStep(working);
+                const obj = objectives(working.propositions, relMap, working.clusters);
+
+                // Update Pareto front
+                const dominated = paretoFront.some(p => dominates(p, obj));
+                if (!dominated) {
+                    paretoFront = paretoFront.filter(p => !dominates(obj, p));
+                    paretoFront.push({ ...obj, gen, snapshot: deepClone(working.propositions) });
+                }
+
+                if (gen % 5 === 0 || gen === 49) {
+                    document.getElementById('gen-badge').style.display = '';
+                    document.getElementById('gen-badge').textContent = `gen ${gen}`;
+                    proposedData = deepClone(working);
+                    renderProposedMatrix(proposedData);
+                    renderDeltaMatrix(currentData, proposedData);
+                    renderParetoChart();
+                    updateScoreBadges();
+                    log(`  gen ${gen}: bw=${obj.bw} cd=${(obj.cd * 100).toFixed(0)}% br=${obj.br}`);
+                    await sleep(30);
+                }
+            }
+
+            if (!loopStop) {
+                const apiKey = document.getElementById('api-key').value.trim();
+                const sourceText = document.getElementById('source-text').value.trim();
+
+                if (apiKey) {
+                    // ── Phase 2: LLM gap-filling ──
+                    log('Phase 2: LLM gap-filling (Inference Mode)');
+                    const sc = score(proposedData);
+                    if (sc.breaks.length > 0) {
+                        try {
+                            const suggestions = await llmBridgeGaps(proposedData, sc.breaks);
+                            for (const sug of suggestions) {
+                                const newId = Math.max(...proposedData.propositions.map(p => p.id)) + 1;
+                                const newProp = {
+                                    id: newId,
+                                    text: sug.text,
+                                    llmGenerated: true,
+                                    isSynthetic: !sug.foundInText,
+                                    justification: sug.justification
+                                };
+                                proposedData.propositions.splice(sug.insertAfterIdx + 1, 0, newProp);
+
+                                // Link the new node
+                                const prev = proposedData.propositions[sug.insertAfterIdx];
+                                const next = proposedData.propositions[sug.insertAfterIdx + 2];
+                                if (prev) proposedData.relations.push({ from: prev.id, to: newId, type: 'dep', justification: "Bridge: " + sug.justification, llmGenerated: true });
+                                if (next) proposedData.relations.push({ from: newId, to: next.id, type: 'dep', justification: "Bridge completion", llmGenerated: true });
+
+                                log(`  ${sug.foundInText ? '✓ Extracted' : '✦ Synthesized'} bridge: "${sug.text.slice(0, 50)}..."`);
+                            }
+                            renderProposedMatrix(proposedData);
+                            renderDeltaMatrix(currentData, proposedData);
+                        } catch (e) {
+                            log(`  Phase 2 Error: ${e.message}`);
+                        }
+                    }
+
+                    // ── Phase 3: Prose regeneration ──
+                    if (sourceText) {
+                        log('Phase 3: Prose regeneration');
+                        try {
+                            await llmRegenerateProse(proposedData, sourceText);
+                            log('  ✓ Prose regenerated — see Proposed Text tab');
+                        } catch (e) {
+                            log(`  Phase 3 Error: ${e.message}`);
+                        }
+                    } else {
+                        log('Phase 3: Skipped (No source text in sidebar)');
+                    }
+                } else {
+                    log('Phase 2/3: Skipped (No API Key)');
+                }
+            }
+
+            log('✓ Loop complete');
+            loopRunning = false;
+            document.getElementById('btn-optimise').disabled = false;
+            document.getElementById('btn-stop').disabled = true;
+            renderScoresPanel(currentData, proposedData);
+
+
+        }
+
+        function stopLoop() { loopStop = true; }
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        // ══════════════════════════════════════════════════════════════
+        // LLM ROLE 2 — gap-filling
+        // ══════════════════════════════════════════════════════════════
+        async function llmBridgeGaps(data, breaks) {
+            const sourceText = document.getElementById('source-text').value.trim() || '[no source text provided]';
+
+            const system = `You are a Logic Engineer. Analyze conceptual breaks. If a bridge is missing from the text, synthesize the required logical premise (Enthymeme).`;
+
+            const user = `SOURCE: ${sourceText.slice(0, 4000)}
+    SEQUENCE: ${data.propositions.map(p => `${p.id}. ${p.text}`).join('\n')}
+    FIX BREAKS: ${breaks.map(b => `${b.fromId} -> ${b.toId}`).join(', ')}`;
+
+            // The schema must be a valid JSON Schema object
+            const schema = {
+                type: "object",
+                properties: {
+                    bridges: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                breakFrom: { type: "integer" },
+                                breakTo: { type: "integer" },
+                                text: { type: "string", description: "The bridging proposition." },
+                                foundInText: { type: "boolean", description: "True if extracted, false if synthesized." },
+                                justification: { type: "string", description: "Logic or source quote." },
+                                insertAfterIdx: { type: "integer" },
+                                position: { type: "number" }
+                            },
+                            required: ["breakFrom", "breakTo", "text", "foundInText", "justification", "insertAfterIdx", "position"]
+                        }
+                    }
+                },
+                required: ["bridges"]
+            };
+
+            const raw = await llm.complete(system, user, null, schema);
+            const result = JSON.parse(raw);
+            return result.bridges; // Extract the array from the wrapper object
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // LLM ROLE 3 — prose regeneration
+        // ══════════════════════════════════════════════════════════════
+        async function llmRegenerateProse(data, sourceText) {
+            const clusters = data.clusters || [{ label: "Full Text", ids: data.propositions.map(p => p.id) }];
+            const el = document.getElementById('dc-proposed-text');
+            el.innerHTML = '';
+
+            for (const cluster of clusters) {
+                const clusterProps = data.propositions.filter(p => cluster.ids.includes(p.id));
+                const system = `You are an expert editor. Rewrite the section titled "${cluster.label}". 
+                        Maintain the 19-minute-read depth and nuance. Do not summarize.`;
+
+                const user = `Context: ${sourceText.slice(0, 1000)}... 
+                      Target Propositions for this section:
+                      ${clusterProps.map(p => `${p.id}: ${p.text}`).join('\n')}`;
+
+                // Stream this specific chunk into the UI
+                await llm.complete(system, user, (chunk) => {
+                    el.textContent += chunk;
+                    el.scrollTop = el.scrollHeight;
+                });
+
+                el.textContent += "\n\n"; // Add spacing between sections
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // SIMPLE WORD DIFF
+        // ══════════════════════════════════════════════════════════════
+        function buildDiff(original, proposed) {
+            const el = document.getElementById('dc-diff');
+            const ow = original.split(/\s+/);
+            const pw = proposed.split(/\s+/);
+
+            // Very simple LCS-based diff
+            let html = '';
+            let oi = 0, pi = 0;
+            while (oi < ow.length || pi < pw.length) {
+                if (oi < ow.length && pi < pw.length && ow[oi] === pw[pi]) {
+                    html += ow[oi] + ' ';
+                    oi++; pi++;
+                } else if (pi < pw.length && (oi >= ow.length || !ow.slice(oi, oi + 5).includes(pw[pi]))) {
+                    html += `<span class="diff-add">${pw[pi]} </span>`;
+                    pi++;
+                } else {
+                    html += `<span class="diff-del">${ow[oi]} </span>`;
+                    oi++;
+                }
+            }
+            el.innerHTML = `<div class="prose-area" style="font-size:10.5px">${html}</div>`;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // RENDER MATRICES
+        // ══════════════════════════════════════════════════════════════
+        function renderCurrentMatrix(data) {
+            const sc = score(data);
+            const el = document.getElementById('ms-current');
+            el.innerHTML = '';
+            el.appendChild(buildMatrix(data, buildRelMap(data), 'current', null));
+            document.getElementById('score-current').textContent = `fit: ${Math.round(sc.genreFit * 100)}%`;
+        }
+
+        function renderProposedMatrix(data) {
+            const sc = score(data);
+            const el = document.getElementById('ms-proposed');
+            el.innerHTML = '';
+            el.appendChild(buildMatrix(data, buildRelMap(data), 'proposed', null));
+            document.getElementById('score-proposed').textContent = `fit: ${Math.round(sc.genreFit * 100)}%`;
+        }
+
+        function renderDeltaMatrix(curr, prop) {
+            const el = document.getElementById('ms-delta');
+            el.innerHTML = '';
+            el.appendChild(buildDeltaMatrix(curr, prop));
+
+            // Score delta: improvement
+            const sc = score(curr);
+            const sp = score(prop);
+            const diff = Math.round((sp.genreFit - sc.genreFit) * 100);
+            document.getElementById('score-delta').textContent = `Δ ${diff >= 0 ? '+' : ''}${diff}%`;
+        }
+
+        function updateScoreBadges() {
+            if (!currentData) return;
+            const sc = score(currentData);
+            document.getElementById('score-current').textContent = `fit: ${Math.round(sc.genreFit * 100)}%`;
+            if (proposedData) {
+                const sp = score(proposedData);
+                document.getElementById('score-proposed').textContent = `fit: ${Math.round(sp.genreFit * 100)}%`;
+                const diff = Math.round((sp.genreFit - sc.genreFit) * 100);
+                document.getElementById('score-delta').textContent = `Δ ${diff >= 0 ? '+' : ''}${diff}%`;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // BUILD MATRIX ELEMENT
+        // ══════════════════════════════════════════════════════════════
+        function buildMatrix(data, relMap, panelId, highlightNew) {
+            const props = data.propositions;
+            const n = props.length;
+            const cs = Math.max(14, Math.min(30, Math.floor(360 / n)));
+            const i2i = idxMap(data);
+
+            const outer = document.createElement('div');
+            outer.style.cssText = 'display:inline-block;';
+
+            // Col labels
+            const colRow = document.createElement('div');
+            colRow.style.cssText = `display:flex;padding-left:${cs}px;margin-bottom:2px;`;
+            props.forEach(p => {
+                const l = document.createElement('div');
+                l.style.cssText = `width:${cs}px;height:${cs}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(6, cs * 0.32)}px;color:var(--text-muted);`;
+                l.textContent = p.id;
+                colRow.appendChild(l);
+            });
+            outer.appendChild(colRow);
+
+            const gridWrap = document.createElement('div');
+            gridWrap.style.cssText = 'position:relative;display:inline-block;';
+
+            for (let i = 0; i < n; i++) {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+
+                const rl = document.createElement('div');
+                rl.style.cssText = `width:${cs}px;height:${cs}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(6, cs * 0.32)}px;color:var(--text-muted);flex-shrink:0;`;
+                rl.textContent = props[i].id;
+                row.appendChild(rl);
+
+                for (let j = 0; j < n; j++) {
+                    const cell = document.createElement('div');
+                    cell.style.cssText = `width:${cs}px;height:${cs}px;border:1px solid transparent;transition:background 0.3s,opacity 0.2s;flex-shrink:0;cursor:default;`;
+
+                    if (i === j) {
+                        cell.style.background = 'var(--surface3)';
+                        // Mark new propositions on diagonal
+                        if (props[i].llmGenerated) {
+                            cell.style.background = 'rgba(0,229,160,0.2)';
+                            cell.style.border = '1px solid var(--fixed)';
+                        }
+                    } else {
+                        const a = Math.min(props[i].id, props[j].id), b = Math.max(props[i].id, props[j].id);
+                        const rel = relMap[`${a}-${b}`];
+                        if (rel) {
+                            cell.style.background = REL_COLORS[rel.type] || '#666';
+                            if (rel.llmGenerated) cell.style.boxShadow = `0 0 0 1px var(--fixed)`;
+                            cell.dataset.rel = rel.type;
+                            cell.dataset.fromId = props[i].id;
+                            cell.dataset.toId = props[j].id;
+                            cell.dataset.just = rel.justification || '';
+                            cell.addEventListener('mousemove', e => showTooltip(e, cell, data, i2i));
+                            cell.addEventListener('mouseleave', () => { hideTooltip(); clearHL(panelId); });
+                            cell.addEventListener('mouseenter', () => hlProps(panelId, props[i].id, props[j].id));
+                        } else {
+                            cell.style.background = 'var(--empty)';
+                        }
+                    }
+                    row.appendChild(cell);
+                }
+                gridWrap.appendChild(row);
+            }
+
+            // Cluster outlines
+            if (data.clusters?.length) {
+                const colLabelH = cs + 4;
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.style.cssText = `position:absolute;top:${colLabelH}px;left:${cs}px;pointer-events:none;overflow:visible;`;
+                svg.setAttribute('width', cs * n); svg.setAttribute('height', cs * n);
+                const strokes = ['#e2e2dc', '#aaaaaa', '#dddddd', '#bbbbbb', '#cccccc'];
+                data.clusters.forEach((cl, ci) => {
+                    const idxs = cl.ids.map(id => i2i[id]).filter(x => x !== undefined).sort((a, b) => a - b);
+                    if (!idxs.length) return;
+                    const minI = idxs[0], maxI = idxs[idxs.length - 1];
+                    const x = minI * cs, y = minI * cs, sz = (maxI - minI + 1) * cs;
+                    const col = strokes[ci % strokes.length];
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    rect.setAttribute('x', x); rect.setAttribute('y', y);
+                    rect.setAttribute('width', sz); rect.setAttribute('height', sz);
+                    rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', col);
+                    rect.setAttribute('stroke-width', '1'); rect.setAttribute('stroke-dasharray', '3 3');
+                    rect.setAttribute('opacity', '0.4');
+                    svg.appendChild(rect);
+                    const lfs = Math.max(7, Math.min(9, cs * 0.35));
+                    const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    txt.setAttribute('x', x + 3); txt.setAttribute('y', y + lfs + 3);
+                    txt.setAttribute('fill', col); txt.setAttribute('font-size', lfs);
+                    txt.setAttribute('font-family', 'DM Mono,monospace'); txt.setAttribute('opacity', '0.6');
+                    txt.textContent = cl.label;
+                    svg.appendChild(txt);
+                });
+                gridWrap.appendChild(svg);
+            }
+
+            outer.appendChild(gridWrap);
+
+            // Prop list alongside
+            const propList = buildPropList(data, panelId);
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex;gap:20px;align-items:flex-start;';
+            wrap.appendChild(outer);
+            wrap.appendChild(propList);
+            return wrap;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // BUILD DELTA MATRIX
+        // ══════════════════════════════════════════════════════════════
+        function buildDeltaMatrix(curr, prop) {
+            const delta = computeDelta(curr, prop);
+            // Use proposed props for layout (may have new nodes)
+            const props = prop.propositions;
+            const n = props.length;
+            const cs = Math.max(14, Math.min(30, Math.floor(360 / n)));
+            const i2i = idxMap(prop);
+
+            // Delta lookup
+            const deltaMap = {};
+            for (const d of delta) deltaMap[`${Math.min(d.a, d.b)}-${Math.max(d.a, d.b)}`] = d;
+
+            const outer = document.createElement('div');
+            outer.style.cssText = 'display:inline-block;';
+
+            const colRow = document.createElement('div');
+            colRow.style.cssText = `display:flex;padding-left:${cs}px;margin-bottom:2px;`;
+            props.forEach(p => {
+                const l = document.createElement('div');
+                l.style.cssText = `width:${cs}px;height:${cs}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(6, cs * 0.32)}px;color:var(--text-muted);`;
+                l.textContent = p.id;
+                colRow.appendChild(l);
+            });
+            outer.appendChild(colRow);
+
+            const gridWrap = document.createElement('div');
+            gridWrap.style.cssText = 'position:relative;display:inline-block;';
+
+            for (let i = 0; i < n; i++) {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                const rl = document.createElement('div');
+                rl.style.cssText = `width:${cs}px;height:${cs}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(6, cs * 0.32)}px;color:var(--text-muted);flex-shrink:0;`;
+                rl.textContent = props[i].id;
+                row.appendChild(rl);
+
+                for (let j = 0; j < n; j++) {
+                    const cell = document.createElement('div');
+                    cell.style.cssText = `width:${cs}px;height:${cs}px;border:1px solid transparent;flex-shrink:0;cursor:default;`;
+
+                    if (i === j) {
+                        cell.style.background = props[i].llmGenerated ? 'rgba(0,229,160,0.25)' : 'var(--surface3)';
+                    } else {
+                        const a = Math.min(props[i].id, props[j].id), b = Math.max(props[i].id, props[j].id);
+                        const d = deltaMap[`${a}-${b}`];
+                        if (d) {
+                            if (d.status === 'added') { cell.style.background = 'var(--fixed)'; cell.style.opacity = '0.8'; }
+                            else if (d.status === 'removed') { cell.style.background = 'var(--brk)'; cell.style.opacity = '0.5'; }
+                            else if (d.status === 'conflict') { cell.style.background = 'var(--conflict)'; cell.style.opacity = '0.7'; }
+                            else if (d.status === 'break') { cell.style.background = 'var(--brk)'; cell.style.opacity = '0.3'; }
+                            cell.dataset.status = d.status;
+                            cell.dataset.a = a; cell.dataset.b = b;
+                            cell.addEventListener('mousemove', e => showDeltaTooltip(e, cell, prop, i2i));
+                            cell.addEventListener('mouseleave', hideTooltip);
+                        } else {
+                            // Check if present in both (unchanged)
+                            const propRelMap = buildRelMap(prop);
+                            const currRelMap = buildRelMap(curr);
+                            if (propRelMap[`${a}-${b}`]) {
+                                cell.style.background = 'var(--empty)';
+                                cell.style.opacity = '0.4';
+                            } else {
+                                cell.style.background = 'var(--empty)';
+                            }
+                        }
+                    }
+                    row.appendChild(cell);
+                }
+                gridWrap.appendChild(row);
+            }
+
+            outer.appendChild(gridWrap);
+
+            // Delta legend
+            const leg = document.createElement('div');
+            leg.style.cssText = 'margin-top:10px;font-size:9px;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;';
+            const items = [
+                ['var(--fixed)', 'Added / fixed break'],
+                ['var(--brk)', 'Removed / structural gap'],
+                ['var(--conflict)', 'Possible conflation'],
+            ];
+            items.forEach(([c, l]) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:6px;';
+                row.innerHTML = `<div style="width:10px;height:10px;background:${c};border-radius:1px;flex-shrink:0"></div><span>${l}</span>`;
+                leg.appendChild(row);
+            });
+
+            const wrap = document.createElement('div');
+            wrap.appendChild(outer);
+            wrap.appendChild(leg);
+            return wrap;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // PROP LIST
+        // ══════════════════════════════════════════════════════════════
+        function buildPropList(data, panelId) {
+            const block = document.createElement('div');
+            block.style.cssText = 'min-width:160px;max-width:280px;';
+            const title = document.createElement('div');
+            title.style.cssText = 'font-size:8.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);';
+            title.textContent = 'Propositions';
+            block.appendChild(title);
+            data.propositions.forEach(p => {
+                const item = document.createElement('div');
+                item.id = `prop-${panelId}-${p.id}`;
+                item.style.cssText = `display:flex;gap:7px;margin-bottom:4px;padding:4px 6px;border-radius:2px;transition:background 0.1s;border-left:2px solid ${p.llmGenerated ? 'var(--fixed)' : 'transparent'};`;
+                const num = document.createElement('div');
+                num.style.cssText = 'font-size:9px;color:var(--text-muted);min-width:16px;flex-shrink:0;padding-top:1px;';
+                num.textContent = p.id;
+                const txt = document.createElement('div');
+                txt.style.cssText = 'font-size:10px;line-height:1.45;color:' + (p.llmGenerated ? 'var(--fixed)' : 'var(--text-dim)') + ';';
+                txt.textContent = p.text;
+                item.appendChild(num); item.appendChild(txt);
+                block.appendChild(item);
+            });
+            return block;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // SCORES PANEL
+        // ══════════════════════════════════════════════════════════════
+        function renderScoresPanel(curr, prop) {
+            const sc = score(curr);
+            const sp = prop ? score(prop) : null;
+            const panel = document.getElementById('scores-panel');
+            const genre = curr.genre || 'expository';
+
+            const bar = (label, val, color, target, val2) => {
+                const pct = Math.round(val * 100);
+                const pct2 = val2 !== undefined ? Math.round(val2 * 100) : null;
+                const tpct = Math.round((target || 0) * 100);
+                return `<div class="score-row">
+      <div class="score-label">${label}</div>
+      <div class="score-bar-wrap" title="Target: ${tpct}%">
+        <div class="score-bar" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="score-val">${pct}%${pct2 !== null ? ` → <span style="color:var(--fixed)">${pct2}%</span>` : ''}
+      </div>
+    </div>`;
+            };
+
+            let html = `<div class="sec-head">Scores — ${genre}</div>
+    ${bar('Diag. tightness', sc.tightness, 'var(--assoc)', sc.targets.tightness, sp?.tightness)}
+    ${bar('Cluster density', sc.clusterDensity, 'var(--dep)', sc.targets.cluster_density, sp?.clusterDensity)}
+    ${bar('Justification', sc.justCov, 'var(--gap)', 1, sp?.justCov)}
+    ${bar('Genre fit', sc.genreFit, 'var(--text)', 1, sp?.genreFit)}
+  `;
+
+            if (sc.breaks.length) {
+                html += `<div class="sec-head">Breaks (${sc.breaks.length})</div>`;
+                for (const b of sc.breaks) {
+                    html += `<div class="gap-item"><div class="gap-ids">${b.fromId}→${b.toId}</div>${b.fromText.slice(0, 55)}…</div>`;
+                }
+            } else {
+                html += `<div class="sec-head" style="color:var(--fixed)">✓ No diagonal breaks</div>`;
+            }
+
+            if (sp) {
+                const newProps = (prop || { propositions: [] }).propositions.filter(p => p.llmGenerated);
+                if (newProps.length) {
+                    html += `<div class="sec-head">LLM-added propositions (${newProps.length})</div>`;
+                    for (const p of newProps) {
+                        html += `<div class="sug-item found"><div class="sug-badge" style="color:var(--fixed)">✓ found in text</div>${p.text}</div>`;
+                    }
+                }
+                if (sp.breaks.length) {
+                    html += `<div class="sec-head" style="color:var(--conflict)">Structural gaps remain (${sp.breaks.length})</div>`;
+                    for (const b of sp.breaks) {
+                        html += `<div class="sug-item missing"><div class="sug-badge" style="color:var(--conflict)">⚠ not in text</div>${b.fromText.slice(0, 50)}… → ${b.toText.slice(0, 50)}…</div>`;
+                    }
+                }
+            }
+
+            panel.innerHTML = html;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // PARETO CHART
+        // ══════════════════════════════════════════════════════════════
+        function renderParetoChart() {
+            if (!paretoFront.length) return;
+            document.getElementById('pareto-wrap').style.display = 'block';
+            const canvas = document.getElementById('pareto');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const bws = paretoFront.map(p => p.bw);
+            const cds = paretoFront.map(p => p.cd);
+            const minBw = Math.min(...bws), maxBw = Math.max(...bws) || 1;
+            const minCd = Math.min(...cds), maxCd = Math.max(...cds) || 1;
+
+            const pad = 8;
+            const w = canvas.width - pad * 2, h = canvas.height - pad * 2;
+
+            ctx.fillStyle = '#1a1a1d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#272729';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, h + pad); ctx.lineTo(w + pad, h + pad); ctx.stroke();
+
+            for (const p of paretoFront) {
+                const x = pad + ((p.bw - minBw) / (maxBw - minBw || 1)) * w;
+                const y = pad + h - ((p.cd - minCd) / (maxCd - minCd || 1)) * h;
+                ctx.fillStyle = p.br === 0 ? '#00e5a0' : '#4a9eff';
+                ctx.globalAlpha = 0.7;
+                ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.fillStyle = '#3a3a36';
+            ctx.font = '7px DM Mono, monospace';
+            ctx.fillText('← bandwidth', pad + 2, h + pad - 2);
+            ctx.fillText('density ↑', pad + 2, pad + 8);
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // STATUS BAR
+        // ══════════════════════════════════════════════════════════════
+        function renderStatusBar(data, sc) {
+            const bar = document.getElementById('status-bar');
+            bar.style.display = 'flex';
+            const counts = {};
+            for (const r of data.relations) counts[r.type] = (counts[r.type] || 0) + 1;
+            bar.innerHTML = `
+    <div class="stat"><span>n:</span><span class="stat-val">${data.propositions.length}</span></div>
+    <div class="stat"><span>rel:</span><span class="stat-val">${sc.rc}</span></div>
+    <div class="stat"><span>density:</span><span class="stat-val">${Math.round(sc.density * 100)}%</span></div>
+    <div class="stat"><span style="color:var(--assoc)">▪</span><span class="stat-val">${counts.assoc || 0}</span></div>
+    <div class="stat"><span style="color:var(--disc)">▪</span><span class="stat-val">${counts.disc || 0}</span></div>
+    <div class="stat"><span style="color:var(--dep)">▪</span><span class="stat-val">${counts.dep || 0}</span></div>
+    <div class="stat"><span style="color:var(--gap)">▪</span><span class="stat-val">${counts.gap || 0}</span></div>
+    <div class="stat"><span>breaks:</span><span class="stat-val" style="color:${sc.breaks.length ? 'var(--brk)' : 'var(--fixed)'}">${sc.breaks.length}</span></div>
+    <div class="stat"><span>fit:</span><span class="stat-val">${Math.round(sc.genreFit * 100)}%</span></div>
+    <span class="status-msg" id="status-msg"></span>
+  `;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // TOOLTIP
+        // ══════════════════════════════════════════════════════════════
+        function showTooltip(e, cell, data, i2i) {
+            const tt = document.getElementById('tooltip');
+            if (!cell.dataset.rel) { tt.style.display = 'none'; return; }
+            const rel = cell.dataset.rel;
+            const fi = parseInt(cell.dataset.fromId), ti = parseInt(cell.dataset.toId);
+            const fp = data.propositions[i2i[fi]], tp = data.propositions[i2i[ti]];
+            const just = cell.dataset.just;
+            tt.className = `tooltip ${rel}`;
+            tt.innerHTML = `<strong>${REL_LABELS[rel] || rel}</strong>${fp.id}. ${fp.text}<br><br>${tp.id}. ${tp.text}${just ? `<div class="just">"${just}"</div>` : ''}`;
+            tt.style.display = 'block';
+        }
+
+        function showDeltaTooltip(e, cell, data, i2i) {
+            const tt = document.getElementById('tooltip');
+            const st = cell.dataset.status;
+            const a = parseInt(cell.dataset.a), b = parseInt(cell.dataset.b);
+            const pa = data.propositions.find(p => p.id === a), pb = data.propositions.find(p => p.id === b);
+            if (!pa || !pb) { tt.style.display = 'none'; return; }
+            const labels = { added: 'Added — break fixed', removed: 'Removed relation', conflict: 'Possible conflation', break: 'Structural gap (not in text)' };
+            tt.className = `tooltip ${st === 'added' ? 'fixed' : st === 'conflict' ? 'conflict' : 'brk'}`;
+            tt.innerHTML = `<strong>${labels[st] || st}</strong>${pa.id}. ${pa.text}<br><br>${pb.id}. ${pb.text}`;
+            tt.style.display = 'block';
+        }
+
+        function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
+
+        function hlProps(panelId, id1, id2) {
+            [id1, id2].forEach(id => {
+                const el = document.getElementById(`prop-${panelId}-${id}`);
+                if (el) { el.style.background = 'var(--surface2)'; el.style.borderLeftColor = 'var(--assoc)'; }
+            });
+        }
+
+        function clearHL(panelId) {
+            document.querySelectorAll(`[id^="prop-${panelId}-"]`).forEach(el => {
+                el.style.background = 'transparent';
+                el.style.borderLeftColor = el.style.borderLeftColor === 'rgb(0, 229, 160)' ? 'var(--fixed)' : 'transparent';
+            });
+        }
+
+        document.addEventListener('mousemove', e => {
+            const tt = document.getElementById('tooltip');
+            if (tt.style.display === 'block') {
+                tt.style.left = (e.clientX + 14) + 'px';
+                tt.style.top = (e.clientY - 10) + 'px';
+            }
+        });
+
+        // ══════════════════════════════════════════════════════════════
+        // PARSE + RENDER ENTRY POINT
+        // ══════════════════════════════════════════════════════════════
+        function parseAndRender() {
+            const raw = document.getElementById('json-input').value.trim();
+            setErr('');
+            let data;
+            try { data = JSON.parse(raw); } catch (e) { setErr('✗ ' + e.message); return; }
+            if (!data.propositions?.length) { setErr('✗ Missing propositions.'); return; }
+            if (!data.relations) { setErr('✗ Missing relations.'); return; }
+
+            currentData = data;
+            proposedData = null;
+
+            renderCurrentMatrix(data);
+            document.getElementById('ms-proposed').innerHTML = '<div style="color:var(--text-muted);font-size:10px;font-style:italic;padding:20px">Click ▶ Run Loop to optimise.</div>';
+            document.getElementById('ms-delta').innerHTML = '<div style="color:var(--text-muted);font-size:10px;font-style:italic;padding:20px">Delta appears after optimisation.</div>';
+            document.getElementById('score-proposed').textContent = '—';
+            document.getElementById('score-delta').textContent = '—';
+            document.getElementById('gen-badge').style.display = 'none';
+
+            const sc = score(data);
+            renderScoresPanel(data, null);
+            renderStatusBar(data, sc);
+
+            // Sync source text to drawer
+            const src = document.getElementById('source-text').value.trim();
+            if (src) document.getElementById('dc-source').textContent = src;
+
+            document.getElementById('btn-optimise').disabled = false;
+            openDrawer();
+        }
+
+        document.getElementById('source-text').addEventListener('input', () => {
+            document.getElementById('dc-source').textContent = document.getElementById('source-text').value;
+        });
+
+        // ══════════════════════════════════════════════════════════════
+        // EXPORT
+        // ══════════════════════════════════════════════════════════════
+        function exportProposed() {
+            const data = proposedData || currentData;
+            if (!data) { setErr('Nothing to export.'); return; }
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'proposed-matrix.json';
+            a.click();
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // TABS + DRAWER
+        // ══════════════════════════════════════════════════════════════
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            else document.querySelectorAll('.tab')[['matrix', 'schema', 'prompt'].indexOf(name)]?.classList.add('active');
+            document.getElementById('view-' + name).classList.add('active');
+            if (name === 'schema') document.getElementById('schema-pre').innerHTML = SCHEMA_TEXT;
+            if (name === 'prompt') document.getElementById('prompt-pre').textContent = PROMPT_TEXT;
+        }
+
+        function switchDrawer(name, btn) {
+            if (btn) {
+                document.querySelectorAll('.drawer-tab').forEach(t => t.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            document.querySelectorAll('.drawer-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('dc-' + name).classList.add('active');
+            openDrawer();
+        }
+
+        function toggleDrawer() {
+            const d = document.getElementById('drawer');
+            const isCollapsed = d.classList.contains('collapsed');
+            d.classList.toggle('collapsed', !isCollapsed);
+            d.classList.toggle('expanded', isCollapsed);
+            document.getElementById('drawer-toggle').textContent = isCollapsed ? '▼' : '▲';
+        }
+
+        function openDrawer() {
+            const d = document.getElementById('drawer');
+            if (d.classList.contains('collapsed')) toggleDrawer();
+        }
+
+        function copyPrompt() {
+            navigator.clipboard.writeText(PROMPT_TEXT).then(() => {
+                const btn = event.target;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy Prompt', 1500);
+            });
+        }
+
+        function loadExample() {
+            document.getElementById('json-input').value = JSON.stringify(EXAMPLE, null, 2);
+            parseAndRender();
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // SCHEMA + PROMPT TEXT
+        // ══════════════════════════════════════════════════════════════
+        const SCHEMA_TEXT = `{
+  "title":        required string   — title of source text
+  "source":       optional string   — citation
+  "genre":        optional string   — "expository"|"scientific"|"argumentative"|"narrative"|"legal"|"lyric"
+  "propositions": required array of:
+    {
+      "id":           required integer  — sequential from 1
+      "text":         required string   — single declarative sentence
+      "position":     optional number   — 0–1 position in source text
+      "cluster":      optional string   — cluster label
+      "llmGenerated": optional bool     — true if inserted by LLM gap-filler
+    }
+  "relations": required array of:
+    {
+      "from":          required integer
+      "to":            required integer
+      "type":          required enum: "assoc"|"disc"|"dep"|"gap"
+      "justification": recommended string  — audit trail: cite source text or explain
+      "strength":      optional number     — 0–1
+      "llmGenerated":  optional bool       — true if suggested by LLM
+    }
+  "clusters": optional array of:
+    {
+      "label": required string
+      "ids":   required integer[]
+    }
+  "genre_targets": optional — override genre defaults
+    {
+      "tightness":       number  0–1
+      "cluster_density": number  0–1
+      "breaks_max":      integer
+    }
+}`;
+
+        const PROMPT_TEXT = `You are an expert in knowledge structure analysis and formal logic.
+Extract a conceptual matrix from the text below using FOUR PASSES.
+
+━━━ SOURCE TEXT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[PASTE SOURCE TEXT HERE]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ PASS 1: EXTRACTION ━━━━━━━━━━━━━━━━━━━━━━━━━
+List every distinct claim the text establishes. 
+Format: N. [proposition] | source: "[brief quote]"
+
+━━━ PASS 2: RELATION MAPPING ━━━━━━━━━━━━━━━━━━━
+Identify relations (assoc, disc, dep, gap) between propositions.
+Focus on the logical dependency (j requires i to be true/understood).
+
+━━━ PASS 3: GAP IDENTIFICATION ━━━━━━━━━━━━━━━━━
+Scan the sequence. Where does the author make a "leap"? 
+Identify "Non-Sequiturs" where Proposition N does not lead to N+1.
+Flag these as "Logical Breaks."
+
+━━━ PASS 4: SYNTHETIC BRIDGE (ENTHYMEMES) ━━━━━━
+For every Logical Break identified in Pass 3:
+1. Synthesize a "Bridging Proposition" (Enthymeme).
+2. This must be the unstated premise required to make the jump logical.
+3. Mark these clearly as [SYNTHETIC].
+
+━━━ OUTPUT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Emit ONLY valid JSON. Ensure synthetic propositions have "llmGenerated": true.
+
+{
+  "title": "...",
+  "genre": "expository",
+  "propositions": [
+    {"id":1, "text":"...", "llmGenerated": false},
+    {"id":2, "text":"[The synthesized bridge]", "llmGenerated": true}
+  ],
+  "relations": [
+    {"from":1, "to":2, "type":"dep", "justification":"Required enthymeme to bridge the gap...", "llmGenerated": true}
+  ]
+}`;
+
+        // init
+        document.getElementById('schema-pre').innerHTML = SCHEMA_TEXT;
+        document.getElementById('prompt-pre').textContent = PROMPT_TEXT;
+    </script>
+</body>
+
+</html>
