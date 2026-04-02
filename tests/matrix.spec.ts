@@ -9,14 +9,19 @@ test.describe('Matrix Component TDD', () => {
         const shell = page.locator('matrix-app-shell');
         await expect(shell).toBeVisible();
 
+        // Trigger a data load to make grids visible
+        const sidebar = page.locator('matrix-sidebar');
+        await sidebar.locator('button#load-example').click();
+
         // Verify Shadow DOM isolation
-        const grid = page.locator('matrix-grid');
+        const grid = page.locator('matrix-grid').first();
         await expect(grid).toBeVisible();
     });
 
     test('should persist data to IndexedDB on update', async ({ page }) => {
         // Trigger a data load
-        await page.click('button#load-example');
+        const sidebar = page.locator('matrix-sidebar');
+        await sidebar.locator('button#load-example').click();
 
         // Check IndexedDB state via browser execution
         const dbValue = await page.evaluate(async () => {
