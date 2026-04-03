@@ -12,6 +12,17 @@ export default {
         console.log('Vite build starting, running agent logic...');
         runAgentLogic();
       }
+    },
+    {
+      name: 'fix-ts-mime-type',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.endsWith('.ts')) {
+            res.setHeader('Content-Type', 'application/javascript');
+          }
+          next();
+        });
+      }
     }
   ]
 };
