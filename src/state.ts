@@ -41,6 +41,8 @@ export interface AppState {
     logLines: string[];
     isLoopRunning: boolean;
     paretoFront: any[];
+    isDrawerExpanded: boolean;
+    activeDrawerTab: string;
 }
 
 type StateObserver = (state: AppState) => void;
@@ -56,6 +58,8 @@ class StateManager {
         logLines: [],
         isLoopRunning: false,
         paretoFront: [],
+        isDrawerExpanded: false,
+        activeDrawerTab: 'source',
     };
 
     private observers: StateObserver[] = [];

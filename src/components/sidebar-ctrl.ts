@@ -139,7 +139,7 @@ export class MatrixSidebar extends HTMLElement {
 
         try {
             const data = JSON.parse(jsonInput.value);
-            stateManager.setState({ currentData: data, proposedData: null, logLines: [] });
+            stateManager.setState({ currentData: data, proposedData: null, logLines: [], isDrawerExpanded: true });
             stateManager.log("Matrix loaded and rendered.");
             errMsg.textContent = "";
         } catch (e: any) {
