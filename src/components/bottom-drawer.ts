@@ -14,9 +14,26 @@ export class BottomDrawer extends HTMLElement {
     private updateContent() {
         const state = stateManager.getState();
         const sourceEl = this.shadowRoot?.getElementById('dc-source');
-        const proposedEl = this.shadowRoot?.getElementById('dc-proposed');
+        const proposedEl = this.shadowRoot?.getElementById('dc-proposed-text');
         const diffEl = this.shadowRoot?.getElementById('dc-diff');
         const logEl = this.shadowRoot?.getElementById('dc-log');
+
+        const drawer = this.shadowRoot?.getElementById('drawer');
+        const toggleBtn = this.shadowRoot?.getElementById('drawer-toggle');
+
+        if (drawer && toggleBtn) {
+            drawer.classList.toggle('collapsed', !state.isDrawerExpanded);
+            drawer.classList.toggle('expanded', state.isDrawerExpanded);
+            toggleBtn.textContent = state.isDrawerExpanded ? '▼' : '▲';
+        }
+
+        this.shadowRoot?.querySelectorAll('.drawer-tab').forEach(t => {
+            t.classList.toggle('active', t.id === `tab-${state.activeDrawerTab}`);
+        });
+
+        this.shadowRoot?.querySelectorAll('.drawer-content').forEach(c => {
+            c.classList.toggle('active', c.id === `dc-${state.activeDrawerTab}`);
+        });
 
         if (sourceEl) {
             sourceEl.textContent = state.sourceText || 'Paste source text in the sidebar to see it here.';
@@ -65,28 +82,13 @@ export class BottomDrawer extends HTMLElement {
         container.innerHTML = `<div class="prose-area" style="font-size:10.5px">${html}</div>`;
     }
 
-    private switchDrawer(name: string, btn: HTMLElement) {
-        this.shadowRoot?.querySelectorAll('.drawer-tab').forEach(t => t.classList.remove('active'));
-        btn.classList.add('active');
-        this.shadowRoot?.querySelectorAll('.drawer-content').forEach(c => c.classList.remove('active'));
-        this.shadowRoot?.getElementById('dc-' + name)?.classList.add('active');
-        this.openDrawer();
+    private switchDrawer(name: string) {
+        stateManager.setState({ activeDrawerTab: name, isDrawerExpanded: true });
     }
 
     private toggleDrawer() {
-        const d = this.shadowRoot?.getElementById('drawer');
-        const toggleBtn = this.shadowRoot?.getElementById('drawer-toggle');
-        if (!d || !toggleBtn) return;
-
-        const isCollapsed = d.classList.contains('collapsed');
-        d.classList.toggle('collapsed', !isCollapsed);
-        d.classList.toggle('expanded', isCollapsed);
-        toggleBtn.textContent = isCollapsed ? '▼' : '▲';
-    }
-
-    private openDrawer() {
-        const d = this.shadowRoot?.getElementById('drawer');
-        if (d?.classList.contains('collapsed')) this.toggleDrawer();
+        const state = stateManager.getState();
+        stateManager.setState({ isDrawerExpanded: !state.isDrawerExpanded });
     }
 
     render() {
@@ -116,22 +118,22 @@ export class BottomDrawer extends HTMLElement {
             <div class="drawer collapsed" id="drawer">
                 <div class="drawer-tabs">
                     <button class="drawer-tab active" id="tab-source">Source text</button>
-                    <button class="drawer-tab" id="tab-proposed">Proposed text</button>
+                    <button class="drawer-tab" id="tab-proposed-text">Proposed text</button>
                     <button class="drawer-tab" id="tab-diff">Diff</button>
                     <button class="drawer-tab" id="tab-log">Log</button>
                     <button class="drawer-toggle" id="drawer-toggle">▲</button>
                 </div>
                 <div class="drawer-content active prose-area" id="dc-source">Paste source text in the sidebar to see it here.</div>
-                <div class="drawer-content prose-area" id="dc-proposed"><span style="color:var(--text-muted);font-style:italic">Regenerated prose appears here after the loop completes.</span></div>
+                <div class="drawer-content prose-area" id="dc-proposed-text"><span style="color:var(--text-muted);font-style:italic">Regenerated prose appears here after the loop completes.</span></div>
                 <div class="drawer-content prose-area" id="dc-diff"><span style="color:var(--text-muted);font-style:italic">Diff appears here.</span></div>
                 <div class="drawer-content" id="dc-log" style="font-size:9.5px;line-height:1.7;color:var(--text-dim)"></div>
             </div>
         `;
 
-        this.shadowRoot!.getElementById('tab-source')?.addEventListener('click', (e) => this.switchDrawer('source', e.target as HTMLElement));
-        this.shadowRoot!.getElementById('tab-proposed')?.addEventListener('click', (e) => this.switchDrawer('proposed', e.target as HTMLElement));
-        this.shadowRoot!.getElementById('tab-diff')?.addEventListener('click', (e) => this.switchDrawer('diff', e.target as HTMLElement));
-        this.shadowRoot!.getElementById('tab-log')?.addEventListener('click', (e) => this.switchDrawer('log', e.target as HTMLElement));
+        this.shadowRoot!.getElementById('tab-source')?.addEventListener('click', () => this.switchDrawer('source'));
+        this.shadowRoot!.getElementById('tab-proposed-text')?.addEventListener('click', () => this.switchDrawer('proposed-text'));
+        this.shadowRoot!.getElementById('tab-diff')?.addEventListener('click', () => this.switchDrawer('diff'));
+        this.shadowRoot!.getElementById('tab-log')?.addEventListener('click', () => this.switchDrawer('log'));
         this.shadowRoot!.getElementById('drawer-toggle')?.addEventListener('click', () => this.toggleDrawer());
     }
 }

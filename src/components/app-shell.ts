@@ -19,7 +19,14 @@ export class AppShell extends HTMLElement {
         const state = stateManager.getState();
         if (!state.currentData) return;
 
-        stateManager.setState({ isLoopRunning: true, logLines: [], paretoFront: [], proposedText: '' });
+        stateManager.setState({
+            isLoopRunning: true,
+            logLines: [],
+            paretoFront: [],
+            proposedText: '',
+            isDrawerExpanded: true,
+            activeDrawerTab: 'log'
+        });
         stateManager.log('▶ Loop started');
         stateManager.log(`Genre: ${state.currentData.genre} | n=${state.currentData.propositions.length} | relations=${state.currentData.relations.length}`);
 
