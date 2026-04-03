@@ -19,12 +19,14 @@ export class AppShell extends HTMLElement {
         const state = stateManager.getState();
         if (!state.currentData) return;
 
-        stateManager.setState({ isLoopRunning: true, logLines: [] });
+        stateManager.setState({ isLoopRunning: true, logLines: [], paretoFront: [], proposedText: '' });
         stateManager.log('▶ Loop started');
         stateManager.log(`Genre: ${state.currentData.genre} | n=${state.currentData.propositions.length} | relations=${state.currentData.relations.length}`);
 
         const optimizer = new Optimizer(state.currentData);
+        const relMap = Optimizer.buildRelMap(state.currentData);
         let working = JSON.parse(JSON.stringify(state.currentData));
+        let paretoFront: any[] = [];
 
         // Phase 1: Optimization
         stateManager.log('Phase 1: Bandwidth optimisation (50 generations)');
@@ -34,11 +36,19 @@ export class AppShell extends HTMLElement {
                 break;
             }
             working = optimizer.step();
-            stateManager.setState({ proposedData: working });
+            const obj = Optimizer.objectives(working.propositions, relMap, working.clusters);
+
+            // Update Pareto front
+            const dominated = paretoFront.some(p => Optimizer.dominates(p, obj));
+            if (!dominated) {
+                paretoFront = paretoFront.filter(p => !Optimizer.dominates(obj, p));
+                paretoFront.push({ ...obj, gen, snapshot: JSON.parse(JSON.stringify(working.propositions)) });
+                stateManager.setState({ paretoFront: [...paretoFront] });
+            }
 
             if (gen % 5 === 0 || gen === 49) {
-                const obj = Optimizer.score(working);
-                stateManager.log(`  gen ${gen}: bw=${obj.rc ? Math.round(obj.tightness * 100) : 0}% fit=${Math.round(obj.genreFit * 100)}% br=${obj.breaks.length}`);
+                stateManager.setState({ proposedData: { ...working } });
+                stateManager.log(`  gen ${gen}: bw=${obj.bw} cd=${(obj.cd * 100).toFixed(0)}% br=${obj.br}`);
                 await new Promise(r => requestAnimationFrame(r));
             }
         }
@@ -75,6 +85,19 @@ export class AppShell extends HTMLElement {
                         stateManager.log(`  Phase 2 Error: ${e.message}`);
                     }
                 }
+
+                // Phase 3: Prose regeneration
+                if (currentState.sourceText) {
+                    stateManager.log('Phase 3: Prose regeneration');
+                    try {
+                        await this.llmRegenerateProse(working, currentState.sourceText);
+                        stateManager.log('  ✓ Prose regenerated — see Proposed Text tab');
+                    } catch (e: any) {
+                        stateManager.log(`  Phase 3 Error: ${e.message}`);
+                    }
+                } else {
+                    stateManager.log('Phase 3: Skipped (No source text in sidebar)');
+                }
             } else {
                 stateManager.log('Phase 2/3: Skipped (No API Key)');
             }
@@ -82,6 +105,30 @@ export class AppShell extends HTMLElement {
 
         stateManager.log('✓ Loop complete');
         stateManager.setState({ isLoopRunning: false });
+    }
+
+    private async llmRegenerateProse(data: any, sourceText: string) {
+        const clusters = data.clusters || [{ label: "Full Text", ids: data.propositions.map((p: any) => p.id) }];
+        stateManager.setState({ proposedText: '' });
+
+        for (const cluster of clusters) {
+            const clusterProps = data.propositions.filter((p: any) => cluster.ids.includes(p.id));
+            const system = `You are an expert editor. Rewrite the section titled "${cluster.label}".
+Maintain the 19-minute-read depth and nuance. Do not summarize.`;
+
+            const user = `Context: ${sourceText.slice(0, 1000)}...
+Target Propositions for this section:
+${clusterProps.map((p: any) => `${p.id}: ${p.text}`).join('\n')}`;
+
+            const state = stateManager.getState();
+            await this.llm.complete(state.apiProvider, state.apiKey, system, user, (chunk) => {
+                const currentText = stateManager.getState().proposedText;
+                stateManager.setState({ proposedText: currentText + chunk });
+            });
+
+            const currentText = stateManager.getState().proposedText;
+            stateManager.setState({ proposedText: currentText + "\n\n" });
+        }
     }
 
     private async llmBridgeGaps(data: any, breaks: any[]) {

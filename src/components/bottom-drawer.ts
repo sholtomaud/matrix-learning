@@ -14,13 +14,55 @@ export class BottomDrawer extends HTMLElement {
     private updateContent() {
         const state = stateManager.getState();
         const sourceEl = this.shadowRoot?.getElementById('dc-source');
+        const proposedEl = this.shadowRoot?.getElementById('dc-proposed');
+        const diffEl = this.shadowRoot?.getElementById('dc-diff');
         const logEl = this.shadowRoot?.getElementById('dc-log');
 
-        if (sourceEl) sourceEl.textContent = state.sourceText;
+        if (sourceEl) {
+            sourceEl.textContent = state.sourceText || 'Paste source text in the sidebar to see it here.';
+        }
+
+        if (proposedEl) {
+            if (state.proposedText) {
+                proposedEl.textContent = state.proposedText;
+            } else {
+                proposedEl.innerHTML = `<span style="color:var(--text-muted);font-style:italic">Regenerated prose appears here after the loop completes.</span>`;
+            }
+        }
+
+        if (diffEl) {
+            if (state.sourceText && state.proposedText) {
+                this.renderDiff(state.sourceText, state.proposedText, diffEl);
+            } else {
+                diffEl.innerHTML = `<span style="color:var(--text-muted);font-style:italic">Diff appears here.</span>`;
+            }
+        }
+
         if (logEl) {
             logEl.innerHTML = state.logLines.map(l => `<div>${l}</div>`).join('');
             logEl.scrollTop = logEl.scrollHeight;
         }
+    }
+
+    private renderDiff(original: string, proposed: string, container: HTMLElement) {
+        const ow = original.split(/\s+/);
+        const pw = proposed.split(/\s+/);
+
+        let html = '';
+        let oi = 0, pi = 0;
+        while (oi < ow.length || pi < pw.length) {
+            if (oi < ow.length && pi < pw.length && ow[oi] === pw[pi]) {
+                html += ow[oi] + ' ';
+                oi++; pi++;
+            } else if (pi < pw.length && (oi >= ow.length || !ow.slice(oi, oi + 5).includes(pw[pi]))) {
+                html += `<span class="diff-add">${pw[pi]} </span>`;
+                pi++;
+            } else {
+                html += `<span class="diff-del">${ow[oi]} </span>`;
+                oi++;
+            }
+        }
+        container.innerHTML = `<div class="prose-area" style="font-size:10.5px">${html}</div>`;
     }
 
     private switchDrawer(name: string, btn: HTMLElement) {
@@ -65,6 +107,8 @@ export class BottomDrawer extends HTMLElement {
             .drawer-content.active { display: block; }
             .drawer-toggle { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 0 4px; }
             .prose-area { font-size: 11px; line-height: 1.8; color: var(--text-dim); white-space: pre-wrap; }
+            .diff-add { background: rgba(0, 229, 160, 0.12); color: var(--fixed); }
+            .diff-del { background: rgba(255, 51, 102, 0.10); color: var(--brk); text-decoration: line-through; }
         `);
         this.shadowRoot!.adoptedStyleSheets = [sheet];
 

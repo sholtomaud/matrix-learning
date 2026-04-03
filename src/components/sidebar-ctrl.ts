@@ -21,6 +21,52 @@ export class MatrixSidebar extends HTMLElement {
         if (stopBtn) stopBtn.disabled = !state.isLoopRunning;
 
         this.renderScores();
+        this.renderParetoChart();
+    }
+
+    private renderParetoChart() {
+        const state = stateManager.getState();
+        const wrap = this.shadowRoot?.getElementById('pareto-wrap');
+        const canvas = this.shadowRoot?.getElementById('pareto') as HTMLCanvasElement;
+        if (!wrap || !canvas || !state.paretoFront.length) {
+            if (wrap) wrap.style.display = 'none';
+            return;
+        }
+
+        wrap.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const bws = state.paretoFront.map(p => p.bw);
+        const cds = state.paretoFront.map(p => p.cd);
+        const minBw = Math.min(...bws), maxBw = Math.max(...bws) || 1;
+        const minCd = Math.min(...cds), maxCd = Math.max(...cds) || 1;
+
+        const pad = 8;
+        const w = canvas.width - pad * 2, h = canvas.height - pad * 2;
+
+        ctx.fillStyle = '#1a1a1d';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = '#272729';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, h + pad); ctx.lineTo(w + pad, h + pad); ctx.stroke();
+
+        for (const p of state.paretoFront) {
+            const x = pad + ((p.bw - minBw) / (maxBw - minBw || 1)) * w;
+            const y = pad + h - ((p.cd - minCd) / (maxCd - minCd || 1)) * h;
+            ctx.fillStyle = p.br === 0 ? '#00e5a0' : '#4a9eff';
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = '#3a3a36';
+        ctx.font = '7px DM Mono, monospace';
+        ctx.fillText('← bandwidth', pad + 2, h + pad - 2);
+        ctx.fillText('density ↑', pad + 2, pad + 8);
     }
 
     private renderScores() {
@@ -65,6 +111,22 @@ export class MatrixSidebar extends HTMLElement {
             }
         } else {
             html += `<div class="sec-head" style="color:var(--fixed)">✓ No diagonal breaks</div>`;
+        }
+
+        if (sp) {
+            const newProps = (state.proposedData?.propositions || []).filter(p => p.llmGenerated);
+            if (newProps.length) {
+                html += `<div class="sec-head">LLM-added propositions (${newProps.length})</div>`;
+                for (const p of newProps) {
+                    html += `<div class="sug-item found"><div class="sug-badge" style="color:var(--fixed)">✓ found in text</div>${p.text}</div>`;
+                }
+            }
+            if (sp.breaks.length) {
+                html += `<div class="sec-head" style="color:var(--conflict)">Structural gaps remain (${sp.breaks.length})</div>`;
+                for (const b of sp.breaks) {
+                    html += `<div class="sug-item missing"><div class="sug-badge" style="color:var(--conflict)">⚠ not in text</div>${b.fromText.slice(0, 50)}… → ${b.toText.slice(0, 50)}…</div>`;
+                }
+            }
         }
 
         panel.innerHTML = html;
@@ -197,6 +259,13 @@ export class MatrixSidebar extends HTMLElement {
             .sec-head { font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin: 12px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
             .gap-item { padding: 5px 7px; margin-bottom: 4px; background: var(--surface2); border-left: 2px solid var(--brk); font-size: 9.5px; line-height: 1.45; color: var(--text-dim); }
             .gap-ids { font-size: 8.5px; color: var(--brk); margin-bottom: 1px; }
+            .sug-item { padding: 5px 7px; margin-bottom: 4px; background: var(--surface2); font-size: 9.5px; line-height: 1.45; color: var(--text-dim); }
+            .sug-item.found { border-left: 2px solid var(--fixed); }
+            .sug-item.missing { border-left: 2px solid var(--conflict); }
+            .sug-badge { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+            .pareto-wrap { padding: 8px 12px; border-top: 1px solid var(--border); }
+            .pareto-title { font-size: 8.5px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 5px; }
+            canvas#pareto { display: block; }
         `);
         this.shadowRoot!.adoptedStyleSheets = [sheet];
 
@@ -206,7 +275,7 @@ export class MatrixSidebar extends HTMLElement {
                 <textarea id="json-input" style="height:160px" placeholder='Paste matrix JSON here...'></textarea>
             </div>
             <div class="sb-section">
-                <div class="sb-label">Source Text</div>
+                <div class="sb-label">Source Text <span style="font-size:8px;font-style:italic">(for LLM)</span></div>
                 <textarea id="source-text" style="height:80px" placeholder='Paste original source text here...'></textarea>
             </div>
             <div class="api-row">
@@ -222,9 +291,17 @@ export class MatrixSidebar extends HTMLElement {
                 <button class="btn go" id="btn-optimise" disabled>▶ Run Loop</button>
                 <button class="btn danger" id="btn-stop" disabled>■ Stop</button>
             </div>
+            <div class="btn-row">
+                <button class="btn" id="btn-copy-prompt">Copy Prompt</button>
+                <button class="btn" id="btn-export">Export JSON</button>
+            </div>
             <div class="err" id="err-msg"></div>
             <div class="scores-panel" id="scores-panel">
                 <div style="color:var(--text-muted);font-size:10px;font-style:italic">Load a matrix to begin.</div>
+            </div>
+            <div class="pareto-wrap" id="pareto-wrap" style="display:none">
+                <div class="pareto-title">Pareto front — tightness vs density</div>
+                <canvas id="pareto" width="248" height="80"></canvas>
             </div>
         `;
 
@@ -235,6 +312,64 @@ export class MatrixSidebar extends HTMLElement {
         });
         this.shadowRoot!.getElementById('btn-stop')?.addEventListener('click', () => {
             stateManager.setState({ isLoopRunning: false });
+        });
+        this.shadowRoot!.getElementById('btn-copy-prompt')?.addEventListener('click', (e) => {
+            const PROMPT_TEXT = `You are an expert in knowledge structure analysis and formal logic.
+Extract a conceptual matrix from the text below using FOUR PASSES.
+
+━━━ SOURCE TEXT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[PASTE SOURCE TEXT HERE]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ PASS 1: EXTRACTION ━━━━━━━━━━━━━━━━━━━━━━━━━
+List every distinct claim the text establishes.
+Format: N. [proposition] | source: "[brief quote]"
+
+━━━ PASS 2: RELATION MAPPING ━━━━━━━━━━━━━━━━━━━
+Identify relations (assoc, disc, dep, gap) between propositions.
+Focus on the logical dependency (j requires i to be true/understood).
+
+━━━ PASS 3: GAP IDENTIFICATION ━━━━━━━━━━━━━━━━━
+Scan the sequence. Where does the author make a "leap"?
+Identify "Non-Sequiturs" where Proposition N does not lead to N+1.
+Flag these as "Logical Breaks."
+
+━━━ PASS 4: SYNTHETIC BRIDGE (ENTHYMEMES) ━━━━━━
+For every Logical Break identified in Pass 3:
+1. Synthesize a "Bridging Proposition" (Enthymeme).
+2. This must be the unstated premise required to make the jump logical.
+3. Mark these clearly as [SYNTHETIC].
+
+━━━ OUTPUT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Emit ONLY valid JSON. Ensure synthetic propositions have "llmGenerated": true.
+
+{
+  "title": "...",
+  "genre": "expository",
+  "propositions": [
+    {"id":1, "text":"...", "llmGenerated": false},
+    {"id":2, "text":"[The synthesized bridge]", "llmGenerated": true}
+  ],
+  "relations": [
+    {"from":1, "to":2, "type":"dep", "justification":"Required enthymeme to bridge the gap...", "llmGenerated": true}
+  ]
+}`;
+            navigator.clipboard.writeText(PROMPT_TEXT).then(() => {
+                const btn = e.target as HTMLButtonElement;
+                const oldText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = oldText, 1500);
+            });
+        });
+        this.shadowRoot!.getElementById('btn-export')?.addEventListener('click', () => {
+            const state = stateManager.getState();
+            const data = state.proposedData || state.currentData;
+            if (!data) return;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'proposed-matrix.json';
+            a.click();
         });
         this.shadowRoot!.getElementById('source-text')?.addEventListener('input', (e) => {
             stateManager.setState({ sourceText: (e.target as HTMLTextAreaElement).value });

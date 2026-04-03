@@ -35,10 +35,12 @@ export interface AppState {
     currentData: MatrixData | null;
     proposedData: MatrixData | null;
     sourceText: string;
+    proposedText: string;
     apiProvider: string;
     apiKey: string;
     logLines: string[];
     isLoopRunning: boolean;
+    paretoFront: any[];
 }
 
 type StateObserver = (state: AppState) => void;
@@ -48,10 +50,12 @@ class StateManager {
         currentData: null,
         proposedData: null,
         sourceText: '',
+        proposedText: '',
         apiProvider: 'anthropic',
         apiKey: '',
         logLines: [],
         isLoopRunning: false,
+        paretoFront: [],
     };
 
     private observers: StateObserver[] = [];
