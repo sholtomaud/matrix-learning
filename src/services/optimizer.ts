@@ -63,6 +63,21 @@ export class Optimizer {
         return br;
     }
 
+    public static objectives(props: Proposition[], relMap: Record<string, Relation>, clusters?: Cluster[]) {
+        return {
+            bw: this.bandwidth(props, relMap),
+            cd: this.clusterDensityFor(props, relMap, clusters),
+            br: this.breaksFor(props, relMap)
+        };
+    }
+
+    public static dominates(a: any, b: any) {
+        // a dominates b if better or equal on all, strictly better on at least one
+        // min bw, max cd, min br
+        return a.bw <= b.bw && a.cd >= b.cd && a.br <= b.br &&
+            (a.bw < b.bw || a.cd > b.cd || a.br < b.br);
+    }
+
     public static score(data: MatrixData) {
         const props = data.propositions;
         const n = props.length;

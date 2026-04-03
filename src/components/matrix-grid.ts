@@ -231,8 +231,9 @@ export class MatrixGrid extends HTMLElement {
     private renderClusterOverlays(gridWrap: HTMLElement, cs: number, n: number, i2i: Record<number, number>) {
         if (!this._data?.clusters?.length) return;
 
+        const colLabelH = cs + 4;
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.style.cssText = `position:absolute;top:0;left:${cs}px;pointer-events:none;overflow:visible;`;
+        svg.style.cssText = `position:absolute;top:${colLabelH}px;left:${cs}px;pointer-events:none;overflow:visible;`;
         svg.setAttribute('width', (cs * n).toString());
         svg.setAttribute('height', (cs * n).toString());
 
