@@ -134,12 +134,21 @@ export class MatrixSidebar extends HTMLElement {
 
     private handleParse() {
         const jsonInput = this.shadowRoot?.getElementById('json-input') as HTMLTextAreaElement;
+        const sourceText = this.shadowRoot?.getElementById('source-text') as HTMLTextAreaElement;
         const errMsg = this.shadowRoot?.getElementById('err-msg');
         if (!jsonInput || !errMsg) return;
 
         try {
             const data = JSON.parse(jsonInput.value);
-            stateManager.setState({ currentData: data, proposedData: null, logLines: [], isDrawerExpanded: true });
+            const sourceValue = sourceText?.value || '';
+            stateManager.setState({
+                currentData: data,
+                proposedData: null,
+                logLines: [],
+                sourceText: sourceValue,
+                activeDrawerTab: 'source',
+                isDrawerExpanded: true
+            });
             stateManager.log("Matrix loaded and rendered.");
             errMsg.textContent = "";
         } catch (e: any) {

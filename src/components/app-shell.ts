@@ -1,4 +1,4 @@
-import { stateManager } from '../state';
+import { stateManager, AppState } from '../state';
 import { Optimizer } from '../services/optimizer';
 import { LLMService } from '../services/llm';
 
@@ -13,6 +13,13 @@ export class AppShell extends HTMLElement {
     connectedCallback() {
         this.render();
         this.addEventListener('run-loop', () => this.runLoop());
+        let lastData: any = null;
+        stateManager.subscribe((state) => {
+            if (state.currentData !== lastData) {
+                lastData = state.currentData;
+                this.updateStatusBar(state);
+            }
+        });
     }
 
     private async runLoop() {
@@ -138,6 +145,35 @@ ${clusterProps.map((p: any) => `${p.id}: ${p.text}`).join('\n')}`;
         }
     }
 
+    private updateStatusBar(state: AppState) {
+        const bar = this.shadowRoot?.getElementById('status-bar');
+        if (!bar) return;
+
+        if (!state.currentData) {
+            bar.style.display = 'none';
+            return;
+        }
+
+        bar.style.display = 'flex';
+        const data = state.currentData;
+        const sc = Optimizer.score(data);
+        const counts: any = {};
+        for (const r of data.relations) counts[r.type] = (counts[r.type] || 0) + 1;
+
+        bar.innerHTML = `
+            <div class="stat"><span>n:</span><span class="stat-val">${data.propositions.length}</span></div>
+            <div class="stat"><span>rel:</span><span class="stat-val">${sc.rc}</span></div>
+            <div class="stat"><span>density:</span><span class="stat-val">${Math.round(sc.density * 100)}%</span></div>
+            <div class="stat"><span style="color:var(--assoc)">▪</span><span class="stat-val">${counts.assoc || 0}</span></div>
+            <div class="stat"><span style="color:var(--disc)">▪</span><span class="stat-val">${counts.disc || 0}</span></div>
+            <div class="stat"><span style="color:var(--dep)">▪</span><span class="stat-val">${counts.dep || 0}</span></div>
+            <div class="stat"><span style="color:var(--gap)">▪</span><span class="stat-val">${counts.gap || 0}</span></div>
+            <div class="stat"><span>breaks:</span><span class="stat-val" style="color:${sc.breaks.length ? 'var(--brk)' : 'var(--fixed)'}">${sc.breaks.length}</span></div>
+            <div class="stat"><span>fit:</span><span class="stat-val">${Math.round(sc.genreFit * 100)}%</span></div>
+            <span class="status-msg" id="status-msg"></span>
+        `;
+    }
+
     private async llmBridgeGaps(data: any, breaks: any[]) {
         const state = stateManager.getState();
         const system = `You are a Logic Engineer. Analyze conceptual breaks. If a bridge is missing from the text, synthesize the required logical premise (Enthymeme).`;
@@ -194,6 +230,14 @@ FIX BREAKS: ${breaks.map(b => `${b.fromId} -> ${b.toId}`).join(', ')}`;
             .tab:hover:not(.active) { border-color: var(--border2); color: var(--text-dim); }
             .main { display: flex; flex: 1; overflow: hidden; }
             .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+            matrix-router { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+            .legend { display: flex; gap: 14px; padding: 8px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; flex-shrink: 0; }
+            .li { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--text-dim); }
+            .ls { width: 10px; height: 10px; border-radius: 1px; flex-shrink: 0; }
+            .status-bar { padding: 6px 16px; border-top: 1px solid var(--border); display: flex; gap: 16px; font-size: 9.5px; color: var(--text-dim); flex-shrink: 0; flex-wrap: wrap; align-items: center; }
+            .stat { display: flex; gap: 4px; align-items: center; }
+            .stat-val { color: var(--text); }
+            .status-msg { margin-left: auto; font-size: 9px; color: var(--text-muted); }
         `);
         this.shadowRoot!.adoptedStyleSheets = [sheet];
 
@@ -210,8 +254,17 @@ FIX BREAKS: ${breaks.map(b => `${b.fromId} -> ${b.toId}`).join(', ')}`;
             <div class="main">
                 <matrix-sidebar></matrix-sidebar>
                 <div class="content">
+                    <div class="legend">
+                        <div class="li"><div class="ls" style="background:var(--assoc)"></div>Association</div>
+                        <div class="li"><div class="ls" style="background:var(--disc)"></div>Discrimination</div>
+                        <div class="li"><div class="ls" style="background:var(--dep)"></div>Dependency</div>
+                        <div class="li"><div class="ls" style="background:var(--gap)"></div>Deliberate gap</div>
+                        <div class="li"><div class="ls" style="background:var(--brk);opacity:.7"></div>Break</div>
+                        <div class="li"><div class="ls" style="background:var(--fixed)"></div>Fixed (proposed)</div>
+                        <div class="li"><div class="ls" style="background:var(--conflict)"></div>Conflation</div>
+                    </div>
                     <matrix-router></matrix-router>
-                    <matrix-bottom-drawer></matrix-bottom-drawer>
+                    <div class="status-bar" id="status-bar" style="display:none"></div>
                 </div>
             </div>
         `;
